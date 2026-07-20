@@ -53,7 +53,7 @@ test('rejects unsupported math with the offending symbol named', async ({ page }
 
 test('keypad toggles in and computes', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('button', { name: '7' })).toBeHidden()
+  await expect(page.getByRole('button', { name: '7', exact: true })).toBeHidden()
   await page.getByRole('button', { name: 'toggle keypad' }).click()
   for (const key of ['7', '×', '6', '=']) {
     await page.getByRole('button', { name: key, exact: true }).click()
@@ -172,24 +172,30 @@ test('history records, dedupes, recalls, and persists across reload', async ({ p
   await expect(page.locator('.history-empty')).toBeVisible()
 })
 
-test('example chips input a named formula ready to compute', async ({ page }) => {
+test('the formula library inserts a categorized formula ready to compute', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /pythagoras/ }).click()
-  await expect(page.locator('math-field')).toHaveJSProperty('value', '\\sqrt{3^2+4^2}')
+  await page.getByRole('button', { name: 'formula library' }).click()
+  const library = page.locator('.formulas')
+  await expect(library).toBeVisible()
+  await expect(library).toContainText('geometry')
+  await expect(library).toContainText('edge cases')
+  await library.getByRole('button', { name: /golden ratio/ }).click()
+  await expect(library).toBeHidden()
+  await expect(page.locator('math-field')).toHaveJSProperty('value', '\\frac{1+\\sqrt{5}}{2}')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('status', { name: 'result' })).toHaveText('5')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('1.61803398875')
 })
 
-test('examples hide, then rescatter to fresh positions', async ({ page }) => {
+test('examples hide, then rescatter to a fresh sample and layout', async ({ page }) => {
   await page.goto('/')
-  const chip = page.getByRole('button', { name: /pythagoras/ })
-  await expect(chip).toBeVisible()
-  const before = await chip.evaluate((el) => el.style.top)
+  const cards = page.locator('.example')
+  await expect(cards).toHaveCount(8)
+  const before = await cards.first().evaluate((el) => el.getAttribute('style'))
   await page.getByRole('button', { name: 'scatter examples' }).click()
-  await expect(chip).toBeHidden()
+  await expect(cards).toHaveCount(0)
   await page.getByRole('button', { name: 'scatter examples' }).click()
-  await expect(chip).toBeVisible()
-  expect(await chip.evaluate((el) => el.style.top)).not.toBe(before)
+  await expect(cards).toHaveCount(8)
+  expect(await cards.first().evaluate((el) => el.getAttribute('style'))).not.toBe(before)
 })
 
 test('dock buttons stay clickable while a transition is running', async ({ page }) => {
@@ -197,5 +203,38 @@ test('dock buttons stay clickable while a transition is running', async ({ page 
   const scatter = page.getByRole('button', { name: 'scatter examples' })
   await scatter.click()
   await scatter.click()
-  await expect(page.getByRole('button', { name: /pythagoras/ })).toBeVisible()
+  await expect(page.locator('.example')).toHaveCount(8)
+})
+
+test('selecting a guided formula opens its steps and diagram', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'formula library' }).click()
+  await page.locator('.formulas').getByRole('button', { name: /pythagoras/ }).click()
+  const guide = page.locator('.guide')
+  await expect(guide).toBeVisible()
+  await expect(guide).toContainText('take the root')
+  await expect(guide.locator('.guide-diagram')).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('5')
+})
+
+test('guided mode follows digit edits and drops on structure change', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('sqrtsqrt16')
+  expect(await fieldValue(page)).toBe('\\sqrt{\\sqrt{16}}')
+  const guide = page.locator('.guide')
+  await expect(guide).toBeVisible()
+  await expect(guide).toContainText('nested roots')
+  await expect(guide).toContainText('inner root')
+  // digits stay free: 16 -> 100 keeps the guide, rebinding the steps
+  await page.keyboard.press('Backspace')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('100')
+  await expect(guide).toContainText('10')
+  // structure change (a symbol inside the radical) drops it
+  await page.keyboard.type('x')
+  await expect(guide).toBeHidden()
 })

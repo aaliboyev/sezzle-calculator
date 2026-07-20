@@ -150,6 +150,31 @@ describe('pressKey', () => {
   })
 })
 
+describe('syncGuide', () => {
+  it('activates on a matching formula and follows its digits', () => {
+    useCalculator.getState().syncGuide('85\\cdot18\\%')
+    expect(useCalculator.getState().guide).toMatchObject({ name: 'tip', values: { a: 85, r: 0.18 } })
+    useCalculator.getState().syncGuide('90\\cdot20\\%')
+    expect(useCalculator.getState().guide?.values).toEqual({ a: 90, r: 0.2 })
+  })
+
+  it('clears when the pattern breaks or the field empties', () => {
+    useCalculator.getState().syncGuide('85\\cdot18\\%')
+    useCalculator.getState().syncGuide('85\\cdot18\\%+1')
+    expect(useCalculator.getState().guide).toBeNull()
+    useCalculator.getState().syncGuide('')
+    expect(useCalculator.getState().guide).toBeNull()
+  })
+})
+
+describe('setFormula guide integration', () => {
+  it('activates the guide for a recognized formula', () => {
+    useCalculator.setState({ field: fakeField('') })
+    useCalculator.getState().setFormula('\\sqrt{3^2+4^2}')
+    expect(useCalculator.getState().guide?.name).toBe('pythagoras')
+  })
+})
+
 describe('toggleExamples', () => {
   it('hides without reseeding and rescatters on reopen', () => {
     useCalculator.getState().toggleExamples()

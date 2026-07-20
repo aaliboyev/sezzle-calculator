@@ -10,6 +10,8 @@
 }
 
 .stage {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -85,6 +87,7 @@ math-field::part(menu-toggle) {
 .keypad {
   view-transition-name: keypad;
   position: fixed;
+  z-index: 2;
   bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
@@ -141,6 +144,90 @@ math-field::part(menu-toggle) {
   filter: brightness(1.08);
 }
 
+.guide {
+  view-transition-name: guide;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  max-width: min(92vw, 620px);
+  margin-top: 8px;
+  padding: 18px 24px;
+  border-radius: 20px;
+  background: rgba(30, 24, 38, 0.92);
+  border: 1px solid var(--key-border);
+  text-align: left;
+}
+
+.guide-title {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.guide-intro {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.guide-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guide-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.guide-step-label {
+  min-width: 138px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.guide-step-math {
+  color: var(--peach);
+  font-size: 0.98rem;
+}
+
+.guide-diagram {
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.guide-diagram text {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.guide-diagram text.accent {
+  fill: var(--peach-strong);
+}
+
+::view-transition-new(guide) {
+  animation: outcome-in 220ms ease both;
+}
+
+@media (max-width: 720px) {
+  .guide {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* Desktop: examples float in the empty space flanking the field.
    Narrow screens: they fall back into flow as a wrapped row above it. */
 .examples {
@@ -149,16 +236,38 @@ math-field::part(menu-toggle) {
   pointer-events: none;
 }
 
+.cat-geometry {
+  --cat: var(--cat-geometry);
+}
+.cat-money {
+  --cat: var(--cat-money);
+}
+.cat-statistics {
+  --cat: var(--cat-statistics);
+}
+.cat-roots {
+  --cat: var(--cat-roots);
+}
+.cat-curiosities {
+  --cat: var(--cat-curiosities);
+}
+.cat-science {
+  --cat: var(--cat-science);
+}
+.cat-edge {
+  --cat: var(--cat-edge);
+}
+
 .example {
   position: absolute;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   align-items: flex-start;
-  max-width: 220px;
-  padding: 12px 16px;
-  border-radius: 16px;
+  max-width: 180px;
+  padding: 10px 14px;
+  border-radius: 14px;
   border: 1px solid var(--key-border);
   background: rgba(255, 255, 255, 0.03);
   color: var(--peach);
@@ -186,25 +295,86 @@ math-field::part(menu-toggle) {
 
 .example:hover {
   opacity: 1;
-  border-color: rgba(255, 176, 136, 0.35);
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--cat, var(--peach-strong)) 40%, transparent);
   background: rgba(255, 255, 255, 0.06);
 }
 
 .example-name {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--cat, var(--muted));
 }
 
 .example-formula {
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
-.example-about {
-  font-size: 0.76rem;
-  line-height: 1.4;
-  color: var(--muted);
+.formulas {
+  view-transition-name: formulas;
+  position: fixed;
+  z-index: 2;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92vw, 560px);
+  max-height: min(56vh, 480px);
+  overflow-y: auto;
+  padding: 16px 18px;
+  border-radius: 26px;
+  background: rgb(26, 21, 32);
+  border: 1px solid var(--key-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.formula-category {
+  margin: 14px 6px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cat, var(--muted));
+}
+
+.formula-group:first-child .formula-category {
+  margin-top: 2px;
+}
+
+.formula-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.formula-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--peach);
+  cursor: pointer;
+  text-align: left;
+}
+
+.formula-entry:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: color-mix(in srgb, var(--cat, var(--peach-strong)) 35%, transparent);
+}
+
+.formula-name {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cat, var(--muted));
+}
+
+.formula-math {
+  font-size: 0.92rem;
 }
 
 @media (max-width: 980px) {
@@ -230,13 +400,14 @@ math-field::part(menu-toggle) {
     font-size: 0.9rem;
   }
 
-  .example-about {
-    display: none;
+  .formula-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 .dock {
   position: fixed;
+  z-index: 2;
   bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
@@ -272,6 +443,7 @@ math-field::part(menu-toggle) {
 .history {
   view-transition-name: history;
   position: fixed;
+  z-index: 2;
   bottom: 96px;
   left: 50%;
   transform: translateX(-50%);

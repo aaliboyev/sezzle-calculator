@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { MathfieldElement } from 'mathlive'
+import { matchGuide, type GuideMatch } from '../engine/guides'
 import { translateLatex } from '../engine/translate'
 import { calculate } from '../lib/api'
 import { formatResult } from '../lib/format'
@@ -19,13 +20,15 @@ export type HistoryEntry = {
   at: number
 }
 
-export type Panel = 'none' | 'keypad' | 'history'
+export type Panel = 'none' | 'keypad' | 'history' | 'formulas'
 
 type CalculatorStore = {
   field: MathfieldElement | null
   outcome: Outcome
   panel: Panel
   history: HistoryEntry[]
+  guide: GuideMatch | null
+  syncGuide: (latex: string) => void
   examplesOpen: boolean
   scatterSeed: number
   toggleExamples: () => void
@@ -62,7 +65,17 @@ export const useCalculator = create<CalculatorStore>()(
       outcome: null,
       panel: 'none',
       history: [],
+      guide: null,
       examplesOpen: true,
+
+      // Animate only when the guide appears or disappears; binding updates
+      // while typing digits apply without a view transition.
+      syncGuide: (latex) => {
+        const next = matchGuide(latex)
+        const apply = () => set({ guide: next })
+        if ((get().guide === null) !== (next === null)) withViewTransition(apply)
+        else apply()
+      },
       scatterSeed: 1,
 
       // Reopening rescatters: a fresh seed rearranges the cards.
@@ -108,7 +121,7 @@ export const useCalculator = create<CalculatorStore>()(
       },
 
       pressKey: (label, insert) => {
-        const { field, submit, clearOutcome } = get()
+        const { field, submit, clearOutcome, syncGuide } = get()
         if (!field) return
         if (label === '=') {
           void submit()
@@ -122,6 +135,7 @@ export const useCalculator = create<CalculatorStore>()(
           field.executeCommand(['insert', insert ?? label])
           clearOutcome()
         }
+        if (label !== '=') syncGuide(field.value)
         field.focus()
       },
 
@@ -133,7 +147,7 @@ export const useCalculator = create<CalculatorStore>()(
         if (!field) return
         withViewTransition(() => {
           field.value = latex
-          set({ panel: 'none', outcome: null })
+          set({ panel: 'none', outcome: null, guide: matchGuide(latex) })
         })
         field.focus()
       },

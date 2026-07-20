@@ -110,12 +110,19 @@ function emit(node: unknown): Emitted {
   }
 }
 
+// Structure-preserving MathJSON for the same latex the translator sees.
+export function parseMathJSON(latex: string): unknown {
+  try {
+    return ce.parse(latex, { canonical: false }).json
+  } catch {
+    return null
+  }
+}
+
 export function translateLatex(latex: string): Translation {
   if (!latex.trim()) return { kind: 'empty' }
-  let json: unknown
-  try {
-    json = ce.parse(latex, { canonical: false }).json
-  } catch {
+  const json = parseMathJSON(latex)
+  if (json === null) {
     return { kind: 'error', message: 'incomplete or invalid expression' }
   }
   if (json === 'Nothing') return { kind: 'empty' }

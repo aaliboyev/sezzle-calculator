@@ -11,6 +11,7 @@ MathfieldElement.soundsDirectory = null
 export function useMathField() {
   const attachField = useCalculator((s) => s.attachField)
   const clearOutcome = useCalculator((s) => s.clearOutcome)
+  const syncGuide = useCalculator((s) => s.syncGuide)
   const submit = useCalculator((s) => s.submit)
 
   return useCallback(
@@ -19,7 +20,10 @@ export function useMathField() {
       field.mathVirtualKeyboardPolicy = 'manual'
       field.menuItems = []
       field.focus()
-      const onInput = () => clearOutcome()
+      const onInput = () => {
+        clearOutcome()
+        syncGuide(field.value)
+      }
       const onKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === '=') {
           e.preventDefault()
@@ -36,6 +40,6 @@ export function useMathField() {
         attachField(null)
       }
     },
-    [attachField, clearOutcome, submit],
+    [attachField, clearOutcome, syncGuide, submit],
   )
 }
