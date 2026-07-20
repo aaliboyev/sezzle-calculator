@@ -30,6 +30,12 @@ body {
   background-attachment: fixed;
 }
 
+/* The transition overlay covers the viewport while animating; without this
+   it swallows pointer events and buttons go briefly dead. */
+::view-transition {
+  pointer-events: none;
+}
+
 /* Every group ends at the same instant — staggered endings read as flicker. */
 ::view-transition-group(*),
 ::view-transition-old(root),

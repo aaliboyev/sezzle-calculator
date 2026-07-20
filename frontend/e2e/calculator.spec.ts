@@ -6,6 +6,10 @@ function fieldValue(page: import('@playwright/test').Page) {
   return page.locator('math-field').evaluate((el) => (el as MathfieldElement).value)
 }
 
+// The example cards drift forever; without this Playwright waits for element
+// stability that never comes. (use.reducedMotion is not honored here.)
+test.beforeEach(({ page }) => page.emulateMedia({ reducedMotion: 'reduce' }))
+
 test('computes an expression typed with the keyboard', async ({ page }) => {
   await page.goto('/')
   const field = page.locator('math-field')
@@ -174,4 +178,24 @@ test('example chips input a named formula ready to compute', async ({ page }) =>
   await expect(page.locator('math-field')).toHaveJSProperty('value', '\\sqrt{3^2+4^2}')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('status', { name: 'result' })).toHaveText('5')
+})
+
+test('examples hide, then rescatter to fresh positions', async ({ page }) => {
+  await page.goto('/')
+  const chip = page.getByRole('button', { name: /pythagoras/ })
+  await expect(chip).toBeVisible()
+  const before = await chip.evaluate((el) => el.style.top)
+  await page.getByRole('button', { name: 'scatter examples' }).click()
+  await expect(chip).toBeHidden()
+  await page.getByRole('button', { name: 'scatter examples' }).click()
+  await expect(chip).toBeVisible()
+  expect(await chip.evaluate((el) => el.style.top)).not.toBe(before)
+})
+
+test('dock buttons stay clickable while a transition is running', async ({ page }) => {
+  await page.goto('/')
+  const scatter = page.getByRole('button', { name: 'scatter examples' })
+  await scatter.click()
+  await scatter.click()
+  await expect(page.getByRole('button', { name: /pythagoras/ })).toBeVisible()
 })

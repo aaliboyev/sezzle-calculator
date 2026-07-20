@@ -26,6 +26,9 @@ type CalculatorStore = {
   outcome: Outcome
   panel: Panel
   history: HistoryEntry[]
+  examplesOpen: boolean
+  scatterSeed: number
+  toggleExamples: () => void
   attachField: (field: MathfieldElement | null) => void
   clearOutcome: () => void
   submit: () => Promise<void>
@@ -59,6 +62,18 @@ export const useCalculator = create<CalculatorStore>()(
       outcome: null,
       panel: 'none',
       history: [],
+      examplesOpen: true,
+      scatterSeed: 1,
+
+      // Reopening rescatters: a fresh seed rearranges the cards.
+      toggleExamples: () =>
+        withViewTransition(() =>
+          set((s) =>
+            s.examplesOpen
+              ? { examplesOpen: false }
+              : { examplesOpen: true, scatterSeed: s.scatterSeed + 1 },
+          ),
+        ),
 
       attachField: (field) => set({ field }),
 
@@ -133,7 +148,7 @@ export const useCalculator = create<CalculatorStore>()(
     {
       name: 'calculator',
       storage,
-      partialize: (s) => ({ history: s.history }),
+      partialize: (s) => ({ history: s.history, examplesOpen: s.examplesOpen }),
     },
   ),
 )

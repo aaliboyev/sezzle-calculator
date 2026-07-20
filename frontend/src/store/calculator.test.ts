@@ -17,7 +17,14 @@ function stubFetch(impl: () => Promise<Response>) {
 }
 
 beforeEach(() => {
-  useCalculator.setState({ field: null, outcome: null, panel: 'none', history: [] })
+  useCalculator.setState({
+    field: null,
+    outcome: null,
+    panel: 'none',
+    history: [],
+    examplesOpen: true,
+    scatterSeed: 1,
+  })
 })
 
 function okResponse(result: number) {
@@ -140,6 +147,17 @@ describe('pressKey', () => {
 
   it('is a no-op without a field', () => {
     expect(() => useCalculator.getState().pressKey('7')).not.toThrow()
+  })
+})
+
+describe('toggleExamples', () => {
+  it('hides without reseeding and rescatters on reopen', () => {
+    useCalculator.getState().toggleExamples()
+    expect(useCalculator.getState().examplesOpen).toBe(false)
+    expect(useCalculator.getState().scatterSeed).toBe(1)
+    useCalculator.getState().toggleExamples()
+    expect(useCalculator.getState().examplesOpen).toBe(true)
+    expect(useCalculator.getState().scatterSeed).toBe(2)
   })
 })
 
