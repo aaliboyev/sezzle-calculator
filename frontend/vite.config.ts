@@ -12,6 +12,21 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      // MathLive and the compute engine are large by nature; splitting them
+      // keeps app-code changes from invalidating the big vendor chunks.
+      chunkSizeWarningLimit: 2000,
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              { name: 'compute-engine', test: /node_modules[/\\]@cortex-js/ },
+              { name: 'mathlive', test: /node_modules[/\\]mathlive/ },
+            ],
+          },
+        },
+      },
+    },
     server: {
       port: Number(env.FRONTEND_PORT),
       proxy: {
@@ -24,7 +39,7 @@ export default defineConfig(({ command, mode }) => {
       coverage: {
         provider: 'v8',
         include: ['src/**'],
-        exclude: ['src/main.tsx', 'src/App.tsx'],
+        exclude: ['src/main.tsx', 'src/App.tsx', 'src/components/**', 'src/hooks/**'],
       },
     },
   }

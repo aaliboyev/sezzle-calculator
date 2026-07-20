@@ -1,27 +1,50 @@
 import { expect, test } from '@playwright/test'
+import type { MathfieldElement } from 'mathlive'
+
+// The math-field is a custom element; read its LaTeX through the DOM.
+function fieldValue(page: import('@playwright/test').Page) {
+  return page.locator('math-field').evaluate((el) => (el as MathfieldElement).value)
+}
 
 test('computes an expression typed with the keyboard', async ({ page }) => {
   await page.goto('/')
-  const input = page.getByRole('textbox', { name: 'expression' })
-  await input.fill('0.1+0.2')
-  await input.press('Enter')
-  await expect(page.getByRole('status')).toHaveText('0.3')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('0.1+0.2')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('0.3')
 })
 
-test('shows a clean error for division by zero', async ({ page }) => {
+test('typing / builds a fraction and division by zero errors cleanly', async ({ page }) => {
   await page.goto('/')
-  const input = page.getByRole('textbox', { name: 'expression' })
-  await input.fill('1/0')
-  await input.press('Enter')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('1/0')
+  expect(await fieldValue(page)).toBe('\\frac10')
+  await page.keyboard.press('Enter')
   await expect(page.getByRole('alert')).toHaveText('division by zero')
 })
 
-test('rejects an invalid expression with a message', async ({ page }) => {
+test('rejects an incomplete expression without contacting the server', async ({ page }) => {
   await page.goto('/')
-  const input = page.getByRole('textbox', { name: 'expression' })
-  await input.fill('2++3')
-  await input.press('Enter')
-  await expect(page.getByRole('alert')).toContainText('unexpected')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('2+')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('alert')).toHaveText('incomplete or invalid expression')
+})
+
+test('rejects unsupported math with the offending symbol named', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('x+1')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('alert')).toHaveText('unsupported: x')
 })
 
 test('keypad toggles in and computes', async ({ page }) => {
@@ -31,37 +54,78 @@ test('keypad toggles in and computes', async ({ page }) => {
   for (const key of ['7', '×', '6', '=']) {
     await page.getByRole('button', { name: key, exact: true }).click()
   }
-  await expect(page.getByRole('status')).toHaveText('42')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('42')
   await page.getByRole('button', { name: 'AC', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'expression' })).toHaveValue('')
-  await expect(page.getByRole('status')).toBeHidden()
+  expect(await fieldValue(page)).toBe('')
+  await expect(page.getByRole('status', { name: 'result' })).toBeHidden()
 })
 
-test('sqrt key inserts √ with the cursor inside parens', async ({ page }) => {
+test('sqrt keypad key builds a radical with the caret inside', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'toggle keypad' }).click()
-  for (const key of ['√', '9', ')', '=']) {
+  for (const key of ['√', '9', '=']) {
     await page.getByRole('button', { name: key, exact: true }).click()
   }
-  await expect(page.getByRole('textbox', { name: 'expression' })).toHaveValue('√(9)')
-  await expect(page.getByRole('status')).toHaveText('3')
+  expect(await fieldValue(page)).toBe('\\sqrt9')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('3')
 })
 
-test('typed sqrt collapses to √ and open parens close on submit', async ({ page }) => {
+test('typing sqrt becomes a real radical', async ({ page }) => {
   await page.goto('/')
-  const input = page.getByRole('textbox', { name: 'expression' })
-  await input.pressSequentially('sqrt(9')
-  await expect(input).toHaveValue('√(9')
-  await input.press('Enter')
-  await expect(input).toHaveValue('√(9)')
-  await expect(page.getByRole('status')).toHaveText('3')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('sqrt9')
+  expect(await fieldValue(page)).toBe('\\sqrt9')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('3')
 })
 
-test('typed symbols are normalized and junk is dropped', async ({ page }) => {
+// Native Cmd+V cannot be synthesized in headless, so the paste event is
+// dispatched directly at MathLive's keyboard sink with LaTeX on the clipboard.
+test('pasted LaTeX renders and evaluates', async ({ page }) => {
   await page.goto('/')
-  const input = page.getByRole('textbox', { name: 'expression' })
-  await input.pressSequentially('8&×@2')
-  await expect(input).toHaveValue('8*2')
-  await input.press('Enter')
-  await expect(page.getByRole('status')).toHaveText('16')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await field.evaluate((el) => {
+    const sink = el.shadowRoot?.querySelector('.ML__keyboard-sink')
+    const data = new DataTransfer()
+    data.setData('text/plain', '\\frac{\\sqrt{16}+2}{3}')
+    sink?.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    )
+  })
+  await expect
+    .poll(async () => fieldValue(page))
+    .toBe('\\frac{\\sqrt{16}+2}{3}')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('2')
+})
+
+test('percent resolves through the translator', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'toggle keypad' }).click()
+  for (const key of ['5', '0', '%', '=']) {
+    await page.getByRole('button', { name: key, exact: true }).click()
+  }
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('0.5')
+})
+
+test('long formulas stay reachable at both ends', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('1234567890+'.repeat(12) + '5')
+  const scrollState = () =>
+    field.evaluate((el) => {
+      const content = el.shadowRoot!.querySelector('.ML__content')!
+      return { left: content.scrollLeft, overflow: content.scrollWidth - content.clientWidth }
+    })
+  const atEnd = await scrollState()
+  expect(atEnd.overflow).toBeGreaterThan(0)
+  expect(atEnd.left).toBeGreaterThan(0)
+  await page.keyboard.press('Home')
+  await expect.poll(async () => (await scrollState()).left).toBe(0)
 })
