@@ -5,13 +5,13 @@ Prompts are verbatim; assistant prose is verbatim; tool calls are collapsed into
 
 | | |
 |---|---|
-| Date | 2026-07-20 (247 min, one sitting) |
+| Date | 2026-07-20 (265 min, one sitting) |
 | Model | claude-fable-5 |
-| Human prompts | 39 |
-| Assistant messages | 975 (331 with internal reasoning) |
-| Tool calls | 553 — Bash ×214, Edit ×179, Read ×72, Write ×67, TaskUpdate ×8, TaskCreate ×4, Agent ×4, SendMessage ×3, TaskStop ×1, WebSearch ×1 |
-| Output tokens | 1,877,182 |
-| Input tokens | 1,799 fresh · 353,827,258 cache-read · 2,025,588 cache-write |
+| Human prompts | 45 |
+| Assistant messages | 1045 (358 with internal reasoning) |
+| Tool calls | 591 — Bash ×234, Edit ×192, Read ×74, Write ×70, TaskUpdate ×8, TaskCreate ×4, Agent ×4, SendMessage ×3, TaskStop ×1, WebSearch ×1 |
+| Output tokens | 2,033,559 |
+| Input tokens | 1,923 fresh · 405,417,200 cache-read · 2,189,768 cache-write |
 
 ---
 
@@ -1832,3 +1832,115 @@ Annotated tag pushed and the release notes cover the five mobile fixes — root 
 > | init | Built-in | ~20 |
 > | review | Built-in | ~30 |
 > | security-review | Built-in | ~30 |
+
+### 🧑 Prompt 40
+
+> it's not covering screen it leaving entire new same height scrollable after it and empty everything scrolling with it even doc buttons. Mobile needs better work
+
+Let me reproduce and find exactly what's creating the phantom scroll height rather than guess:
+
+<details><summary>⚙️ 8 tool calls — Bash ×7, Read · 3 failed</summary>
+
+- ✗ `Bash` Measure phantom scroll space on mobile viewport
+- `Bash` Measure phantom scroll space from frontend dir
+- `Bash` Probe scroll overflow under WebKit iPhone emulation
+- ✗ `Bash` Rebuild embedded binary with current frontend and restart
+- ✗ `Bash` Restart binary and confirm fresh assets
+- `Bash` Restart from repo root and verify
+- `Bash` Verify production binary mobile UX under WebKit
+- `Read` /private/tmp/claude-501/-Users-abror-projects-sezzle-calculator/15d6bfe3-06e3-4962-bdb8-976167e9b9ee/scratchpad/mobile-prod.png
+
+</details>
+
+Root cause found — and it wasn't the layout code: **the running binary was serving a stale frontend**. The embedded `backend/dist` was last built at 21:08, during the release verification — *before* every mobile fix landed. Both Chromium and WebKit emulation of the actual committed code showed zero phantom scroll (`scrollHeight` exactly equals viewport height, no overflowing elements) — which is why I went hunting for an environment difference instead of patching blind.
+
+After rebuilding the embed and restarting, here's the production binary at `:5700` under WebKit's iPhone 13 profile, verified end to end: document height 664 = viewport 664 (nothing scrolls), field at the top (y=20), keypad auto-opened below it (y=228) without covering anything, dock fixed at the bottom, `50%` → `0.5` computed through the keypad. The screenshot above is that exact state — it finally looks like a real mobile calculator.
+
+Two things so this doesn't bite again:
+
+1. **Restarting is enough** — `make run` always rebuilds the embed before launching (the `run: .env build` dependency), so a fresh `make run` can never serve stale UI. The trap was only that the *old process kept running* across my frontend commits. The server now running on `:5700` is current; on your phone or a narrow window it should match the screenshot.
+2. If you still see the empty-scroll behavior after a hard refresh (mobile Safari caches aggressively — the asset hashes changed, so a plain reload should fetch fresh), then it's something my emulation can't reproduce, and I'd want to know the exact device/browser and whether it happens with a panel open — but I'd genuinely expect this to be resolved.
+
+Nothing to commit — the fix was a build artifact, and `backend/dist` is gitignored by design.
+
+### 🧑 Prompt 41
+
+> Why background is flickering when doc buttons are clicked is it transtion api artifact?
+
+### 🧑 Prompt 42
+
+> Why background is flickering when doc buttons are clicked is it transtion api artifact?
+> 
+> it is not running binary issue it's on prod already fix it properly.
+
+Yes — it's a View Transition API artifact, and deeper than the root crossfade I removed: while *any* view transition runs, the browser swaps the live page for **snapshot textures** of it for 220ms. Even with the root pair frozen, that live→snapshot→live swap can rasterize the large radial gradients slightly differently (GPU dithering/banding), which reads as a background flicker on every dock tap — especially on mobile. The proper fix is to stop using document-global view transitions for panel toggles entirely: sheets animate with plain CSS mount/exit animations (no snapshots, background never touched). Implementing:
+
+<details><summary>⚙️ 3 tool calls — Write ×2, Bash</summary>
+
+- `Write` frontend/src/components/Sheet.tsx
+- `Write` frontend/src/store/calculator.ts
+- `Bash` Delete view-transition helper
+
+</details>
+
+### 🧑 Prompt 43 *(queued while Claude worked)*
+
+> calculator.aliboyev.com holds latest build
+
+### 🧑 Prompt 44 *(queued while Claude worked)*
+
+> I saw the earlier changes take effect so new build still contains that scroll issue and transition bug
+
+<details><summary>⚙️ 27 tool calls — Edit ×13, Bash ×12, Read, Write</summary>
+
+- `Edit` frontend/src/components/Keypad.tsx
+- `Edit` frontend/src/components/Keypad.tsx
+- `Edit` frontend/src/components/HistoryPanel.tsx
+- `Bash` Convert panels to Sheet, drop card transition names
+- `Read` frontend/src/index.css
+- `Write` frontend/src/index.css
+- `Bash` Rewire App.css animations off the VT API
+- `Bash` Check leftover VT reference, run all tests
+- `Bash` Identify the failing e2e tests
+- `Bash` Read unsupported-math failure detail
+- `Bash` Read both failure contexts
+- `Bash` Debug missing error outcome
+- `Bash` Instrument store and trace submit path
+- `Bash` Trace keydown/input/outcome ordering on Enter
+- `Edit` frontend/src/store/calculator.ts
+- `Edit` frontend/src/store/calculator.ts
+- `Edit` frontend/src/store/calculator.ts
+- `Edit` frontend/src/store/calculator.ts
+- `Edit` frontend/src/store/calculator.ts
+- `Edit` frontend/src/store/calculator.ts
+- `Edit` frontend/src/hooks/useMathField.ts
+- `Edit` frontend/src/hooks/useMathField.ts
+- `Edit` frontend/src/hooks/useMathField.ts
+- `Bash` Clean up debug, run full verification
+- `Bash` Verify no VT in bundle, prod binary clean on WebKit
+- `Bash` Commit, push, tag and release v1.0.2
+- `Edit` .tmp/plan.md
+
+</details>
+
+Fixed properly — v1.0.2 is tagged and released: https://github.com/aaliboyev/sezzle-calculator/releases/tag/v1.0.2. **Deploy that tag to calculator.aliboyev.com** and both symptoms should be gone.
+
+**Your diagnosis was right — it was a View Transition API artifact**, and deeper than my earlier root-crossfade freeze could fix. While any view transition runs, the browser replaces the live page with full-viewport *snapshot textures* for 220ms. Two consequences: the background gets re-rasterized into a texture and back on every dock tap — GPU gradient dithering makes that swap visible as a flicker, worst on mobile — and on mobile Safari the overlay layer is sized to the layout viewport, which is very plausibly your phantom "extra screen of empty scrollable space where everything, even the dock, scrolls together" (the snapshot is one big inert layer). Freezing the root animation didn't help because the snapshot *swap* itself is the artifact.
+
+So the API is now gone entirely — `startViewTransition` no longer appears in the bundle at all. Panels animate with plain CSS mount/exit animations via a small `Sheet` presence wrapper (keeps a closing sheet mounted 220ms for its exit animation); results, errors, and the guide rise in with mount animations; sheets center with the `translate` property so the animation's `transform` composes cleanly. Same look and feel, zero snapshots, background untouched by construction.
+
+**The rework also flushed out a latent bug** my e2e caught immediately: error messages stopped appearing on Enter. Tracing the event order showed MathLive fires `input` events on Enter *without any value change*, and our input handler was wiping the just-set error outcome — it had only ever worked because `startViewTransition` ran the state update in a later task, after the spurious events. Input handling is now deduped by value in the store, which is correct regardless of timing.
+
+Verified: 123 unit tests, all 16 e2e flows, and the production binary under WebKit's iPhone profile through a rapid five-toggle sequence — document height stays exactly at viewport height, no scroll offset, keypad still computes. The local `:5700` server is already running the fixed build if you want to feel it before deploying.
+
+### 🧑 Prompt 45
+
+> What you mean removed? removed from desktop view too?
+
+Yes, removed from desktop too — but to be precise about what "removed" means: **the animations all still exist and look the same; only the mechanism underneath changed.**
+
+What the View Transition API was doing for us was never the motion itself — the motion was always our keyframes (`sheet-in`/`sheet-out` slide, the result's rise-in). The API's job was delivery: snapshot the whole page, animate between snapshots. That snapshotting was the liability — it's what re-rasterized the background per toggle. Desktop had the same artifact, just less visibly (better GPUs, no URL-bar viewport games), and the same 220ms dead-pointer window I patched around earlier. Now the exact same keyframes, durations, and easing run directly on the elements: keypad and sheets still spring up and drop away, results and guides still rise in, on desktop and mobile alike. Side-by-side you shouldn't be able to tell the difference — except that the background never blinks and buttons never go dead mid-animation.
+
+One genuine capability was lost, and it's small: view transitions could *morph* a persisting element between two layouts (the old snapshot gliding into the new). The only place that ever applied was the example cards' rescatter — previously the surviving cards could glide to their new spots. But each rescatter also deals a new random *sample*, so most cards are different elements anyway and just appeared/disappeared; the glide almost never actually happened. If you want that motion back properly, it's a one-line CSS transition on the cards' `top`/`left` (they're inline styles on persisting elements keyed by formula name) — no snapshots involved. Say the word.
+
+Everything else — the flicker fixes, dead-click fix, reduced-motion behavior — carries over or became unnecessary by construction.
