@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func newMux() *http.ServeMux {
@@ -16,6 +17,22 @@ func newMux() *http.ServeMux {
 	return mux
 }
 
+// 'unsafe-inline' styles are required by MathLive's rendered markup.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Content-Security-Policy",
+			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		h.Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func handler() http.Handler {
+	return securityHeaders(newMux())
+}
+
 func main() {
 	port := os.Getenv("BACKEND_PORT")
 	if port == "" {
@@ -26,7 +43,15 @@ func main() {
 	} else {
 		log.Printf("listening on :%s", port)
 	}
-	if err := http.ListenAndServe(":"+port, newMux()); err != nil {
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

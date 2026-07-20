@@ -12,7 +12,7 @@ COPY backend .
 COPY --from=frontend /app/dist ./dist
 RUN CGO_ENABLED=0 go build -tags embed -o /calculator .
 
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=backend /calculator /calculator
 ENV BACKEND_PORT=5700
 EXPOSE 5700

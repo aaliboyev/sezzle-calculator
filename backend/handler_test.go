@@ -103,6 +103,21 @@ func TestCalculateEndpointMethodNotAllowed(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/calculate", strings.NewReader(`{"expression": "1+1"}`))
+	rec := httptest.NewRecorder()
+	handler().ServeHTTP(rec, req)
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("X-Content-Type-Options = %q", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "default-src 'self'") {
+		t.Errorf("Content-Security-Policy = %q", got)
+	}
+	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Errorf("Referrer-Policy = %q", got)
+	}
+}
+
 func TestHealth(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
