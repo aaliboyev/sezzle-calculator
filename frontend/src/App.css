@@ -148,8 +148,8 @@ math-field::part(menu-toggle) {
   view-transition-name: guide;
   display: flex;
   align-items: center;
-  gap: 20px;
-  max-width: min(92vw, 620px);
+  gap: 28px;
+  max-width: min(92vw, 780px);
   margin-top: 8px;
   padding: 18px 24px;
   border-radius: 20px;
@@ -209,8 +209,22 @@ math-field::part(menu-toggle) {
 }
 
 .guide-diagram {
-  width: 200px;
+  width: 260px;
   flex-shrink: 0;
+}
+
+/* Dim contents only: the surface stays opaque so cards behind never bleed through. */
+.guide-stale .guide-intro,
+.guide-stale .guide-steps,
+.guide-stale .guide-diagram {
+  opacity: 0.45;
+}
+
+.guide-paused {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--muted);
 }
 
 .guide-diagram text {

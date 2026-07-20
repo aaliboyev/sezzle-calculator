@@ -28,6 +28,7 @@ type CalculatorStore = {
   panel: Panel
   history: HistoryEntry[]
   guide: GuideMatch | null
+  guideStale: boolean
   syncGuide: (latex: string) => void
   examplesOpen: boolean
   scatterSeed: number
@@ -43,9 +44,11 @@ type CalculatorStore = {
 }
 
 const HISTORY_LIMIT = 50
+const GUIDE_STALE_DELAY = 1000
 
 // Guards against a slow response landing after a newer submit.
 let submitSeq = 0
+let staleTimer: ReturnType<typeof setTimeout> | undefined
 
 const memory = new Map<string, string>()
 const storage = createJSONStorage(() =>
@@ -66,16 +69,29 @@ export const useCalculator = create<CalculatorStore>()(
       panel: 'none',
       history: [],
       guide: null,
-      examplesOpen: true,
+      guideStale: false,
 
-      // Animate only when the guide appears or disappears; binding updates
-      // while typing digits apply without a view transition.
+      // Matches update the guide immediately; a broken pattern is debounced —
+      // mid-edit states like "4." on the way to "4.6" never flash. Only a
+      // pattern still broken after the debounce dims the panel as paused.
       syncGuide: (latex) => {
         const next = matchGuide(latex)
-        const apply = () => set({ guide: next })
-        if ((get().guide === null) !== (next === null)) withViewTransition(apply)
-        else apply()
+        const prev = get().guide
+        clearTimeout(staleTimer)
+        if (next) {
+          const apply = () => set({ guide: next, guideStale: false })
+          if (prev === null) withViewTransition(apply)
+          else apply()
+        } else if (!latex.trim()) {
+          if (prev) withViewTransition(() => set({ guide: null, guideStale: false }))
+        } else if (prev) {
+          staleTimer = setTimeout(() => {
+            if (get().guide && !get().guideStale) set({ guideStale: true })
+          }, GUIDE_STALE_DELAY)
+        }
       },
+
+      examplesOpen: true,
       scatterSeed: 1,
 
       // Reopening rescatters: a fresh seed rearranges the cards.
@@ -147,7 +163,7 @@ export const useCalculator = create<CalculatorStore>()(
         if (!field) return
         withViewTransition(() => {
           field.value = latex
-          set({ panel: 'none', outcome: null, guide: matchGuide(latex) })
+          set({ panel: 'none', outcome: null, guide: matchGuide(latex), guideStale: false })
         })
         field.focus()
       },

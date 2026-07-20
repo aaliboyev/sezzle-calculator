@@ -22,6 +22,8 @@ beforeEach(() => {
     outcome: null,
     panel: 'none',
     history: [],
+    guide: null,
+    guideStale: false,
     examplesOpen: true,
     scatterSeed: 1,
   })
@@ -158,12 +160,37 @@ describe('syncGuide', () => {
     expect(useCalculator.getState().guide?.values).toEqual({ a: 90, r: 0.2 })
   })
 
-  it('clears when the pattern breaks or the field empties', () => {
+  it('debounces a broken pattern into a paused state instead of hiding', () => {
+    vi.useFakeTimers()
     useCalculator.getState().syncGuide('85\\cdot18\\%')
     useCalculator.getState().syncGuide('85\\cdot18\\%+1')
-    expect(useCalculator.getState().guide).toBeNull()
+    expect(useCalculator.getState().guide?.name).toBe('tip')
+    expect(useCalculator.getState().guideStale).toBe(false)
+    vi.advanceTimersByTime(1100)
+    expect(useCalculator.getState().guideStale).toBe(true)
+    useCalculator.getState().syncGuide('85\\cdot20\\%')
+    expect(useCalculator.getState().guideStale).toBe(false)
+    expect(useCalculator.getState().guide?.values).toEqual({ a: 85, r: 0.2 })
+    vi.useRealTimers()
+  })
+
+  it('a match within the debounce window never pauses', () => {
+    vi.useFakeTimers()
+    useCalculator.getState().syncGuide('85\\cdot18\\%')
+    useCalculator.getState().syncGuide('85\\cdot')
+    vi.advanceTimersByTime(400)
+    useCalculator.getState().syncGuide('85\\cdot20\\%')
+    vi.advanceTimersByTime(2000)
+    expect(useCalculator.getState().guideStale).toBe(false)
+    expect(useCalculator.getState().guide?.values.r).toBe(0.2)
+    vi.useRealTimers()
+  })
+
+  it('clears immediately when the field empties', () => {
+    useCalculator.getState().syncGuide('85\\cdot18\\%')
     useCalculator.getState().syncGuide('')
     expect(useCalculator.getState().guide).toBeNull()
+    expect(useCalculator.getState().guideStale).toBe(false)
   })
 })
 

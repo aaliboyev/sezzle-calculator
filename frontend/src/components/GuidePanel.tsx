@@ -4,11 +4,13 @@ import { Diagram } from './diagrams'
 
 export function GuidePanel() {
   const guide = useCalculator((s) => s.guide)
+  const stale = useCalculator((s) => s.guideStale)
   if (!guide) return null
   return (
-    <section className="guide" aria-label={`guide: ${guide.name}`}>
+    <section className={stale ? 'guide guide-stale' : 'guide'} aria-label={`guide: ${guide.name}`}>
       <div className="guide-text">
         <h2 className="guide-title">{guide.name}</h2>
+        {stale && <p className="guide-paused">pattern paused mid-edit — finish the digits to update</p>}
         <p className="guide-intro">{guide.intro}</p>
         <ol className="guide-steps">
           {guide.steps.map((step) => (

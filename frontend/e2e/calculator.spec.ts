@@ -234,7 +234,11 @@ test('guided mode follows digit edits and drops on structure change', async ({ p
   await page.keyboard.press('Backspace')
   await page.keyboard.type('100')
   await expect(guide).toContainText('10')
-  // structure change (a symbol inside the radical) drops it
+  // structure change dims the guide as paused instead of flashing it away
   await page.keyboard.type('x')
+  await expect(guide).toContainText('pattern paused')
+  // emptying the field clears it entirely
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.press('Backspace')
   await expect(guide).toBeHidden()
 })
