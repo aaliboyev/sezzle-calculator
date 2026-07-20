@@ -1,16 +1,16 @@
 import { useCalculator } from '../store/calculator'
 
 export function PadToggle() {
-  const padOpen = useCalculator((s) => s.padOpen)
-  const togglePad = useCalculator((s) => s.togglePad)
+  const open = useCalculator((s) => s.panel === 'keypad')
+  const togglePanel = useCalculator((s) => s.togglePanel)
   return (
     <button
       type="button"
-      className="pad-toggle"
+      className="dock-toggle"
       aria-label="toggle keypad"
-      aria-expanded={padOpen}
+      aria-expanded={open}
       onPointerDown={(e) => e.preventDefault()}
-      onClick={togglePad}
+      onClick={() => togglePanel('keypad')}
     >
       <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor" aria-hidden="true">
         {[3, 11, 19].flatMap((y) =>

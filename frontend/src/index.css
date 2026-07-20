@@ -37,11 +37,13 @@ body {
   animation-duration: 220ms;
 }
 
-::view-transition-new(keypad) {
+::view-transition-new(keypad),
+::view-transition-new(history) {
   animation: keypad-in 220ms cubic-bezier(0.22, 0.9, 0.28, 1.1) both;
 }
 
-::view-transition-old(keypad) {
+::view-transition-old(keypad),
+::view-transition-old(history) {
   animation: keypad-out 220ms ease both;
 }
 

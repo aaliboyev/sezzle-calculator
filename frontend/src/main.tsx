@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import 'mathlive/fonts.css'
+import 'mathlive/static.css'
 import './index.css'
 import App from './App.tsx'
 

@@ -17,8 +17,12 @@ function stubFetch(impl: () => Promise<Response>) {
 }
 
 beforeEach(() => {
-  useCalculator.setState({ field: null, outcome: null, padOpen: false })
+  useCalculator.setState({ field: null, outcome: null, panel: 'none', history: [] })
 })
+
+function okResponse(result: number) {
+  return () => Promise.resolve(new Response(JSON.stringify({ result }), { status: 200 }))
+}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -139,11 +143,100 @@ describe('pressKey', () => {
   })
 })
 
-describe('togglePad', () => {
-  it('toggles the keypad flag', () => {
-    useCalculator.getState().togglePad()
-    expect(useCalculator.getState().padOpen).toBe(true)
-    useCalculator.getState().togglePad()
-    expect(useCalculator.getState().padOpen).toBe(false)
+describe('togglePanel', () => {
+  it('toggles a panel and closes it on repeat', () => {
+    useCalculator.getState().togglePanel('keypad')
+    expect(useCalculator.getState().panel).toBe('keypad')
+    useCalculator.getState().togglePanel('keypad')
+    expect(useCalculator.getState().panel).toBe('none')
+  })
+
+  it('panels are exclusive', () => {
+    useCalculator.getState().togglePanel('keypad')
+    useCalculator.getState().togglePanel('history')
+    expect(useCalculator.getState().panel).toBe('history')
+  })
+})
+
+describe('history', () => {
+  it('records a successful calculation with its hash', async () => {
+    stubFetch(okResponse(42))
+    useCalculator.setState({ field: fakeField('7\\times6') })
+    await useCalculator.getState().submit()
+    const { history } = useCalculator.getState()
+    expect(history).toHaveLength(1)
+    expect(history[0]).toMatchObject({ latex: '7\\times6', result: '42' })
+    expect(history[0].hash).toMatch(/^[0-9a-f]{8}$/)
+  })
+
+  it('does not record failed calculations', async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: { code: 'division_by_zero', message: 'division by zero' } }), {
+          status: 422,
+        }),
+      ),
+    )
+    useCalculator.setState({ field: fakeField('\\frac{1}{0}') })
+    await useCalculator.getState().submit()
+    expect(useCalculator.getState().history).toHaveLength(0)
+  })
+
+  it('dedupes by hash, moving the entry to the top', async () => {
+    stubFetch(okResponse(2))
+    useCalculator.setState({ field: fakeField('1+1') })
+    await useCalculator.getState().submit()
+    stubFetch(okResponse(4))
+    useCalculator.setState({ field: fakeField('2+2') })
+    await useCalculator.getState().submit()
+    stubFetch(okResponse(2))
+    useCalculator.setState({ field: fakeField('1+1') })
+    await useCalculator.getState().submit()
+    const latexes = useCalculator.getState().history.map((h) => h.latex)
+    expect(latexes).toEqual(['1+1', '2+2'])
+  })
+
+  it('caps the history length', async () => {
+    const full = Array.from({ length: 50 }, (_, i) => ({
+      hash: String(i).padStart(8, '0'),
+      latex: `${i}`,
+      result: `${i}`,
+      at: i,
+    }))
+    useCalculator.setState({ history: full, field: fakeField('9+9') })
+    stubFetch(okResponse(18))
+    await useCalculator.getState().submit()
+    const { history } = useCalculator.getState()
+    expect(history).toHaveLength(50)
+    expect(history[0].latex).toBe('9+9')
+  })
+
+  it('recall re-inputs the latex, closes the panel and clears the outcome', () => {
+    const field = fakeField('')
+    useCalculator.setState({
+      field,
+      panel: 'history',
+      outcome: { kind: 'result', text: '42' },
+      history: [{ hash: 'abcd1234', latex: '7\\times6', result: '42', at: 1 }],
+    })
+    useCalculator.getState().recall('abcd1234')
+    expect(field.value).toBe('7\\times6')
+    expect(field.focus).toHaveBeenCalled()
+    expect(useCalculator.getState().panel).toBe('none')
+    expect(useCalculator.getState().outcome).toBeNull()
+  })
+
+  it('recall of an unknown hash is a no-op', () => {
+    const field = fakeField('1+1')
+    useCalculator.setState({ field, panel: 'history' })
+    useCalculator.getState().recall('ffffffff')
+    expect(field.value).toBe('1+1')
+    expect(useCalculator.getState().panel).toBe('history')
+  })
+
+  it('clearHistory empties the list', () => {
+    useCalculator.setState({ history: [{ hash: 'a', latex: '1', result: '1', at: 1 }] })
+    useCalculator.getState().clearHistory()
+    expect(useCalculator.getState().history).toHaveLength(0)
   })
 })

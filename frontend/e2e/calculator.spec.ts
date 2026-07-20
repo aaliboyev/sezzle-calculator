@@ -129,3 +129,41 @@ test('long formulas stay reachable at both ends', async ({ page }) => {
   await page.keyboard.press('Home')
   await expect.poll(async () => (await scrollState()).left).toBe(0)
 })
+
+test('history records, dedupes, recalls, and persists across reload', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  const result = page.getByRole('status', { name: 'result' })
+  await field.click()
+  await expect(field).toBeFocused()
+
+  await page.keyboard.type('7*6')
+  await page.keyboard.press('Enter')
+  await expect(result).toHaveText('42')
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.type('1+1')
+  await page.keyboard.press('Enter')
+  await expect(result).toHaveText('2')
+
+  await page.getByRole('button', { name: 'toggle history' }).click()
+  const entries = page.locator('.history-entry')
+  await expect(entries).toHaveCount(2)
+  await expect(entries.first()).toContainText('= 2')
+
+  // recall the older entry, recompute: dedupe moves it to the top
+  await entries.nth(1).click()
+  await expect(field).toHaveJSProperty('value', '7\\cdot6')
+  await page.keyboard.press('Enter')
+  await expect(result).toHaveText('42')
+  await page.getByRole('button', { name: 'toggle history' }).click()
+  await expect(entries).toHaveCount(2)
+  await expect(entries.first()).toContainText('= 42')
+
+  await page.reload()
+  await page.getByRole('button', { name: 'toggle history' }).click()
+  await expect(entries).toHaveCount(2)
+
+  await page.getByRole('button', { name: 'clear history' }).click()
+  await expect(entries).toHaveCount(0)
+  await expect(page.locator('.history-empty')).toBeVisible()
+})

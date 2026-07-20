@@ -29,9 +29,9 @@ const KEYS: Key[] = [
 ]
 
 export function Keypad() {
-  const padOpen = useCalculator((s) => s.padOpen)
+  const open = useCalculator((s) => s.panel === 'keypad')
   const pressKey = useCalculator((s) => s.pressKey)
-  if (!padOpen) return null
+  if (!open) return null
   return (
     <div className="keypad" onPointerDown={(e) => e.preventDefault()}>
       {KEYS.map((key) => (

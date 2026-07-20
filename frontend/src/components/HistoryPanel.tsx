@@ -1,0 +1,36 @@
+import { convertLatexToMarkup } from 'mathlive'
+import { useCalculator } from '../store/calculator'
+
+export function HistoryPanel() {
+  const open = useCalculator((s) => s.panel === 'history')
+  const history = useCalculator((s) => s.history)
+  const recall = useCalculator((s) => s.recall)
+  const clearHistory = useCalculator((s) => s.clearHistory)
+  if (!open) return null
+  return (
+    <div className="history" aria-label="history" onPointerDown={(e) => e.preventDefault()}>
+      {history.length === 0 ? (
+        <p className="history-empty">no calculations yet</p>
+      ) : (
+        <>
+          <ul className="history-list">
+            {history.map((entry) => (
+              <li key={entry.hash}>
+                <button type="button" className="history-entry" onClick={() => recall(entry.hash)}>
+                  <span
+                    className="history-formula"
+                    dangerouslySetInnerHTML={{ __html: convertLatexToMarkup(entry.latex) }}
+                  />
+                  <span className="history-result">= {entry.result}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="history-clear" onClick={clearHistory}>
+            clear history
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
