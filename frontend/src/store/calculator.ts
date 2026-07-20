@@ -31,6 +31,7 @@ type CalculatorStore = {
   submit: () => Promise<void>
   pressKey: (label: string, insert?: string) => void
   togglePanel: (panel: Exclude<Panel, 'none'>) => void
+  setFormula: (latex: string) => void
   recall: (hash: string) => void
   clearHistory: () => void
 }
@@ -112,15 +113,19 @@ export const useCalculator = create<CalculatorStore>()(
       togglePanel: (panel) =>
         withViewTransition(() => set((s) => ({ panel: s.panel === panel ? 'none' : panel }))),
 
-      recall: (hash) => {
-        const { field, history } = get()
-        const entry = history.find((h) => h.hash === hash)
-        if (!field || !entry) return
+      setFormula: (latex) => {
+        const { field } = get()
+        if (!field) return
         withViewTransition(() => {
-          field.value = entry.latex
+          field.value = latex
           set({ panel: 'none', outcome: null })
         })
         field.focus()
+      },
+
+      recall: (hash) => {
+        const entry = get().history.find((h) => h.hash === hash)
+        if (entry) get().setFormula(entry.latex)
       },
 
       clearHistory: () => set({ history: [] }),

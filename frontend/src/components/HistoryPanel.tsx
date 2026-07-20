@@ -17,6 +17,7 @@ export function HistoryPanel() {
             {history.map((entry) => (
               <li key={entry.hash}>
                 <button type="button" className="history-entry" onClick={() => recall(entry.hash)}>
+                  {/* Markup is MathLive's converter over LaTeX this client stored itself; no foreign HTML enters here. */}
                   <span
                     className="history-formula"
                     dangerouslySetInnerHTML={{ __html: convertLatexToMarkup(entry.latex) }}

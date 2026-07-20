@@ -167,3 +167,11 @@ test('history records, dedupes, recalls, and persists across reload', async ({ p
   await expect(entries).toHaveCount(0)
   await expect(page.locator('.history-empty')).toBeVisible()
 })
+
+test('example chips input a named formula ready to compute', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /pythagoras/ }).click()
+  await expect(page.locator('math-field')).toHaveJSProperty('value', '\\sqrt{3^2+4^2}')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('5')
+})

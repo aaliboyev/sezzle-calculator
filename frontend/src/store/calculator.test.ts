@@ -143,6 +143,22 @@ describe('pressKey', () => {
   })
 })
 
+describe('setFormula', () => {
+  it('replaces the field content, closes panels, clears the outcome', () => {
+    const field = fakeField('1+1')
+    useCalculator.setState({ field, panel: 'keypad', outcome: { kind: 'result', text: '2' } })
+    useCalculator.getState().setFormula('\\sqrt{3^2+4^2}')
+    expect(field.value).toBe('\\sqrt{3^2+4^2}')
+    expect(field.focus).toHaveBeenCalled()
+    expect(useCalculator.getState().panel).toBe('none')
+    expect(useCalculator.getState().outcome).toBeNull()
+  })
+
+  it('is a no-op without a field', () => {
+    expect(() => useCalculator.getState().setFormula('1')).not.toThrow()
+  })
+})
+
 describe('togglePanel', () => {
   it('toggles a panel and closes it on repeat', () => {
     useCalculator.getState().togglePanel('keypad')
