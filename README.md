@@ -1,0 +1,72 @@
+# sezzle-calculator
+
+Full-stack calculator. Go REST backend evaluates arithmetic expressions; React + TypeScript frontend is a single dark-themed screen with one large expression input and an optional keypad animated via the View Transition API.
+
+## Setup
+
+Requires Go 1.25+, Node 22+.
+
+```sh
+cp .env.example .env        # ports: BACKEND_PORT=5700, FRONTEND_PORT=5701
+cd frontend && npm ci && cd ..
+make dev-backend            # terminal 1
+make dev-frontend           # terminal 2, proxies /api to the backend
+```
+
+Open http://localhost:5701.
+
+### Production build
+
+```sh
+make build                  # embeds frontend into backend/bin/calculator
+./backend/bin/calculator
+```
+
+Or with Docker:
+
+```sh
+docker build -t calculator .
+docker run -p 5700:5700 calculator
+```
+
+## API
+
+`POST /api/v1/calculate` — evaluates an expression, `GET /health` — liveness.
+
+Supported: `+ - * / ^` with standard precedence, parentheses, unary minus, postfix `%` (divides by 100), prefix `√` or `sqrt` (parens optional: `√9`, `√(2+2)`), decimal and exponent literals (`1e-7`).
+
+```sh
+curl -s localhost:5700/api/v1/calculate -d '{"expression": "(2+3)*4"}'
+# {"result":20}
+
+curl -s localhost:5700/api/v1/calculate -d '{"expression": "√9+50%"}'
+# {"result":3.5}
+
+curl -s localhost:5700/api/v1/calculate -d '{"expression": "1/0"}'
+# {"error":{"code":"division_by_zero","message":"division by zero"}}  (HTTP 422)
+
+curl -s localhost:5700/api/v1/calculate -d '{"expression": "2++3"}'
+# {"error":{"code":"invalid_expression","message":"unexpected operator \"+\""}}  (HTTP 422)
+
+curl -s localhost:5700/api/v1/calculate -d '{"expression": 5}'
+# {"error":{"code":"invalid_request","message":"\"expression\" must be a string"}}  (HTTP 400)
+```
+
+Error codes: `invalid_request` (400, malformed body), `invalid_expression`, `division_by_zero`, `overflow`, `undefined_result` (422, valid request that cannot be computed), `method_not_allowed` (405).
+
+## Tests
+
+```sh
+make test        # Go + Vitest unit tests
+make e2e         # Playwright flows against the real backend + Vite
+make coverage    # coverage for both layers
+```
+
+## Design notes
+
+- **Expression string over `{op, operands}`.** The API takes `{"expression": "..."}` and the backend tokenizes, converts to RPN (shunting-yard), and evaluates. This keeps all arithmetic semantics — precedence, associativity, div-by-zero, overflow — in one tested place, and the frontend stays a thin input surface.
+- **Errors are structured and terminal.** Every failure maps to a `{error: {code, message}}` body with a specific status; JSON cannot carry `Inf`/`NaN`, so overflow and indeterminate results are 422 errors rather than sentinel values.
+- **The input stays plain text with Unicode `√`** instead of a rendered math editor: typed `sqrt` collapses to `√`, the keypad's `√` drops the cursor inside auto-inserted parens, and unclosed parens are balanced on submit — the ergonomics of math input without a LaTeX/MathJax dependency.
+- **Frontend logic lives in pure modules** (`src/lib`): sanitization, cursor edits, formatting, API shaping — unit-tested in Vitest under node. Components stay thin; `App.tsx` is excluded from unit coverage because its behavior is proven end-to-end by Playwright against the real stack.
+- **Display formatting rounds to 12 significant digits** client-side; the API returns the honest float64 (`0.1+0.2` → `0.30000000000000004`).
+- **Single-binary deploy.** `go build -tags embed` serves the built frontend from the Go binary; dev builds skip the embed and Vite proxies `/api`.
