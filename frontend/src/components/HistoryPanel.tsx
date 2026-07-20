@@ -1,14 +1,14 @@
 import { convertLatexToMarkup } from 'mathlive'
 import { useCalculator } from '../store/calculator'
+import { Sheet } from './Sheet'
 
 export function HistoryPanel() {
   const open = useCalculator((s) => s.panel === 'history')
   const history = useCalculator((s) => s.history)
   const recall = useCalculator((s) => s.recall)
   const clearHistory = useCalculator((s) => s.clearHistory)
-  if (!open) return null
   return (
-    <div className="history" aria-label="history" onPointerDown={(e) => e.preventDefault()}>
+    <Sheet open={open} className="history" aria-label="history" onPointerDown={(e) => e.preventDefault()}>
       {history.length === 0 ? (
         <p className="history-empty">no calculations yet</p>
       ) : (
@@ -32,6 +32,6 @@ export function HistoryPanel() {
           </button>
         </>
       )}
-    </div>
+    </Sheet>
   )
 }

@@ -10,8 +10,7 @@ MathfieldElement.soundsDirectory = null
 // Returned as a ref callback; React 19 runs the returned cleanup on unmount.
 export function useMathField() {
   const attachField = useCalculator((s) => s.attachField)
-  const clearOutcome = useCalculator((s) => s.clearOutcome)
-  const syncGuide = useCalculator((s) => s.syncGuide)
+  const handleInput = useCalculator((s) => s.handleInput)
   const submit = useCalculator((s) => s.submit)
   const togglePanel = useCalculator((s) => s.togglePanel)
 
@@ -21,10 +20,7 @@ export function useMathField() {
       field.mathVirtualKeyboardPolicy = 'manual'
       field.menuItems = []
       field.focus()
-      const onInput = () => {
-        clearOutcome()
-        syncGuide(field.value)
-      }
+      const onInput = () => handleInput(field.value)
       const onKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === '=') {
           e.preventDefault()
@@ -50,6 +46,6 @@ export function useMathField() {
         attachField(null)
       }
     },
-    [attachField, clearOutcome, syncGuide, submit, togglePanel],
+    [attachField, handleInput, submit, togglePanel],
   )
 }

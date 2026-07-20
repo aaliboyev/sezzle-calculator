@@ -1,13 +1,13 @@
 import { convertLatexToMarkup } from 'mathlive'
 import { CATEGORIES, FORMULAS } from '../engine/formulas'
 import { useCalculator } from '../store/calculator'
+import { Sheet } from './Sheet'
 
 export function FormulasPanel() {
   const open = useCalculator((s) => s.panel === 'formulas')
   const setFormula = useCalculator((s) => s.setFormula)
-  if (!open) return null
   return (
-    <div className="formulas" aria-label="formula library" onPointerDown={(e) => e.preventDefault()}>
+    <Sheet open={open} className="formulas" aria-label="formula library" onPointerDown={(e) => e.preventDefault()}>
       {CATEGORIES.map((category) => (
         <section key={category.id} className={`formula-group cat-${category.id}`}>
           <h3 className="formula-category">{category.label}</h3>
@@ -31,6 +31,6 @@ export function FormulasPanel() {
           </div>
         </section>
       ))}
-    </div>
+    </Sheet>
   )
 }

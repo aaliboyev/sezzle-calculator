@@ -1,4 +1,5 @@
 import { useCalculator } from '../store/calculator'
+import { Sheet } from './Sheet'
 
 type Key = { label: string; insert?: string; span?: number; variant?: string }
 
@@ -31,9 +32,8 @@ const KEYS: Key[] = [
 export function Keypad() {
   const open = useCalculator((s) => s.panel === 'keypad')
   const pressKey = useCalculator((s) => s.pressKey)
-  if (!open) return null
   return (
-    <div className="keypad" onPointerDown={(e) => e.preventDefault()}>
+    <Sheet open={open} className="keypad" onPointerDown={(e) => e.preventDefault()}>
       {KEYS.map((key) => (
         <button
           key={key.label}
@@ -45,6 +45,6 @@ export function Keypad() {
           {key.label}
         </button>
       ))}
-    </div>
+    </Sheet>
   )
 }
