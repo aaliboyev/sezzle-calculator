@@ -1,0 +1,149 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MathfieldElement } from 'mathlive'
+import { useCalculator } from './calculator'
+
+function fakeField(latex: string) {
+  return {
+    value: latex,
+    executeCommand: vi.fn(),
+    focus: vi.fn(),
+  } as unknown as MathfieldElement & { executeCommand: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn> }
+}
+
+function stubFetch(impl: () => Promise<Response>) {
+  const spy = vi.fn(impl)
+  vi.stubGlobal('fetch', spy)
+  return spy
+}
+
+beforeEach(() => {
+  useCalculator.setState({ field: null, outcome: null, padOpen: false })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('submit', () => {
+  it('does nothing without an attached field', async () => {
+    const spy = stubFetch(() => Promise.resolve(new Response('{}')))
+    await useCalculator.getState().submit()
+    expect(spy).not.toHaveBeenCalled()
+    expect(useCalculator.getState().outcome).toBeNull()
+  })
+
+  it('does nothing for an empty field', async () => {
+    const spy = stubFetch(() => Promise.resolve(new Response('{}')))
+    useCalculator.setState({ field: fakeField('') })
+    await useCalculator.getState().submit()
+    expect(spy).not.toHaveBeenCalled()
+    expect(useCalculator.getState().outcome).toBeNull()
+  })
+
+  it('shows translation errors without contacting the server', async () => {
+    const spy = stubFetch(() => Promise.resolve(new Response('{}')))
+    useCalculator.setState({ field: fakeField('x+1') })
+    await useCalculator.getState().submit()
+    expect(spy).not.toHaveBeenCalled()
+    expect(useCalculator.getState().outcome).toEqual({ kind: 'error', message: 'unsupported: x' })
+  })
+
+  it('formats a successful result', async () => {
+    stubFetch(() =>
+      Promise.resolve(new Response(JSON.stringify({ result: 0.30000000000000004 }), { status: 200 })),
+    )
+    useCalculator.setState({ field: fakeField('0.1+0.2') })
+    await useCalculator.getState().submit()
+    expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '0.3' })
+  })
+
+  it('shows backend errors', async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ error: { code: 'division_by_zero', message: 'division by zero' } }),
+          { status: 422 },
+        ),
+      ),
+    )
+    useCalculator.setState({ field: fakeField('\\frac{1}{0}') })
+    await useCalculator.getState().submit()
+    expect(useCalculator.getState().outcome).toEqual({ kind: 'error', message: 'division by zero' })
+  })
+
+  it('ignores a stale response that lands after a newer submit', async () => {
+    let releaseFirst!: (r: Response) => void
+    const first = new Promise<Response>((resolve) => {
+      releaseFirst = resolve
+    })
+    const spy = stubFetch(() => first)
+    useCalculator.setState({ field: fakeField('1+1') })
+    const firstSubmit = useCalculator.getState().submit()
+
+    spy.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ result: 4 }), { status: 200 })),
+    )
+    useCalculator.setState({ field: fakeField('2+2') })
+    await useCalculator.getState().submit()
+    expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '4' })
+
+    releaseFirst(new Response(JSON.stringify({ result: 2 }), { status: 200 }))
+    await firstSubmit
+    expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '4' })
+  })
+})
+
+describe('pressKey', () => {
+  it('inserts and refocuses, clearing the previous outcome', () => {
+    const field = fakeField('')
+    useCalculator.setState({ field, outcome: { kind: 'result', text: '1' } })
+    useCalculator.getState().pressKey('√', '\\sqrt{#0}')
+    expect(field.executeCommand).toHaveBeenCalledWith(['insert', '\\sqrt{#0}'])
+    expect(field.focus).toHaveBeenCalled()
+    expect(useCalculator.getState().outcome).toBeNull()
+  })
+
+  it('falls back to the label when no insert is given', () => {
+    const field = fakeField('')
+    useCalculator.setState({ field })
+    useCalculator.getState().pressKey('7')
+    expect(field.executeCommand).toHaveBeenCalledWith(['insert', '7'])
+  })
+
+  it('AC empties the field and outcome', () => {
+    const field = fakeField('1+1')
+    useCalculator.setState({ field, outcome: { kind: 'error', message: 'x' } })
+    useCalculator.getState().pressKey('AC')
+    expect(field.value).toBe('')
+    expect(useCalculator.getState().outcome).toBeNull()
+  })
+
+  it('backspace deletes backward', () => {
+    const field = fakeField('12')
+    useCalculator.setState({ field })
+    useCalculator.getState().pressKey('⌫')
+    expect(field.executeCommand).toHaveBeenCalledWith('deleteBackward')
+  })
+
+  it('= submits the field content', async () => {
+    stubFetch(() => Promise.resolve(new Response(JSON.stringify({ result: 42 }), { status: 200 })))
+    useCalculator.setState({ field: fakeField('7\\times6') })
+    useCalculator.getState().pressKey('=')
+    await vi.waitFor(() => {
+      expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '42' })
+    })
+  })
+
+  it('is a no-op without a field', () => {
+    expect(() => useCalculator.getState().pressKey('7')).not.toThrow()
+  })
+})
+
+describe('togglePad', () => {
+  it('toggles the keypad flag', () => {
+    useCalculator.getState().togglePad()
+    expect(useCalculator.getState().padOpen).toBe(true)
+    useCalculator.getState().togglePad()
+    expect(useCalculator.getState().padOpen).toBe(false)
+  })
+})

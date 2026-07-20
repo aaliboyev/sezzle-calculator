@@ -10,7 +10,6 @@
 }
 
 .stage {
-  view-transition-name: stage;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -18,31 +17,40 @@
   width: min(92vw, 780px);
 }
 
-.display {
+math-field {
   width: 100%;
-  background: none;
+  box-sizing: border-box;
+  background: transparent;
   border: none;
-  outline: none;
-  text-align: center;
-  font-family: inherit;
-  font-size: clamp(2.4rem, 8vw, 4.6rem);
-  font-weight: 200;
-  letter-spacing: 0.02em;
+  font-size: clamp(2.2rem, 7vw, 4rem);
   color: var(--peach);
-  caret-color: var(--orange);
-  font-variant-numeric: tabular-nums;
-  padding: 0 0 14px;
+  --caret-color: var(--orange);
+  --selection-background-color: rgba(167, 139, 250, 0.28);
+  --selection-color: var(--peach);
+  --contains-highlight-background-color: rgba(255, 140, 90, 0.12);
+  --smart-fence-color: var(--muted);
+  --placeholder-color: var(--violet);
+  --placeholder-opacity: 0.8;
+  padding: 8px 16px 18px;
   border-bottom: 1px solid transparent;
   border-image: linear-gradient(90deg, transparent, var(--violet-deep), var(--orange), transparent) 1;
   transition: border-image-source 200ms ease;
 }
 
-.display::placeholder {
-  color: rgba(255, 211, 184, 0.18);
+math-field:focus-within {
+  outline: none;
+  border-image-source: linear-gradient(90deg, transparent, var(--violet), var(--peach-strong), transparent);
 }
 
-.display:focus {
-  border-image-source: linear-gradient(90deg, transparent, var(--violet), var(--peach-strong), transparent);
+/* "safe" falls back to start-aligned when a long formula overflows, so
+   MathLive's caret-following scroll can still reach both ends. */
+math-field::part(content) {
+  justify-content: safe center;
+}
+
+math-field::part(virtual-keyboard-toggle),
+math-field::part(menu-toggle) {
+  display: none;
 }
 
 .outcome {
@@ -64,21 +72,32 @@
 }
 
 .error {
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   color: var(--error);
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(255, 122, 110, 0.09);
+  border: 1px solid rgba(255, 122, 110, 0.25);
 }
 
+/* Fixed overlay: opening the keypad must not reflow the stage — a moving
+   stage snapshot resamples the 1px underline and it flickers on handoff. */
 .keypad {
   view-transition-name: keypad;
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 10px;
   width: min(92vw, 430px);
   padding: 14px;
   border-radius: 26px;
-  background: rgba(255, 255, 255, 0.03);
+  /* No backdrop-filter: view-transition snapshots can't capture it and the
+     stale baked box flickers when the keypad closes. */
+  background: rgba(30, 24, 38, 0.92);
   border: 1px solid var(--key-border);
-  backdrop-filter: blur(18px);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
@@ -123,7 +142,10 @@
 }
 
 .pad-toggle {
-  view-transition-name: pad-toggle;
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,9 +156,8 @@
   background: var(--key-bg);
   color: var(--muted);
   cursor: pointer;
-  transition:
-    color 150ms ease,
-    background 150ms ease;
+  /* No transition: it would freeze during the view transition and visibly
+     replay after it ends. State colors ride the crossfade instead. */
 }
 
 .pad-toggle:hover {
