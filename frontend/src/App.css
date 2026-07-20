@@ -153,9 +153,15 @@ math-field::part(menu-toggle) {
   margin-top: 8px;
   padding: 18px 24px;
   border-radius: 20px;
-  background: rgba(30, 24, 38, 0.92);
+  /* Fully opaque: floating cards behind must not ghost through. */
+  background: rgb(26, 21, 32);
   border: 1px solid var(--key-border);
   text-align: left;
+}
+
+.guide-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .guide-title {
@@ -211,6 +217,19 @@ math-field::part(menu-toggle) {
   fill: var(--muted);
   font-size: 11px;
   font-family: inherit;
+}
+
+/* Bespoke diagrams may animate via transitions/transforms; keep them calm. */
+.guide-diagram * {
+  transition-duration: 300ms;
+  transition-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-diagram * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 .guide-diagram text.accent {

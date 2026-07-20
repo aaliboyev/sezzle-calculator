@@ -44,6 +44,14 @@ body {
   pointer-events: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 /* Every group ends at the same instant — staggered endings read as flicker. */
 ::view-transition-group(*),
 ::view-transition-old(root),

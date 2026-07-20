@@ -77,6 +77,24 @@ describe('non-matching input', () => {
   })
 })
 
+describe('diagrams are data derived from the bound values', () => {
+  it('pythagoras draws a triangle labeled with the actual sides', () => {
+    const match = matchGuide('\\sqrt{3^2+4^2}')
+    expect(match?.diagram?.height).toBe(140)
+    const texts = match!.diagram!.shapes.filter((s) => s.kind === 'text').map((s) => (s as { text: string }).text)
+    expect(texts).toEqual(expect.arrayContaining(['3', '4', '5']))
+  })
+
+  it('guards return null instead of drawing nonsense', () => {
+    expect(matchGuide('\\sqrt{0^2+4^2}')?.diagram).toBeNull()
+    expect(matchGuide('500\\cdot(1+\\frac{7}{100})^{99}')?.diagram).toBeNull()
+  })
+
+  it('guides without a diagram report null', () => {
+    expect(matchGuide('\\sqrt{\\sqrt{16}}')?.diagram).toBeNull()
+  })
+})
+
 describe('step values render through the display formatter', () => {
   it('tip rate round-trips without float noise', () => {
     const match = matchGuide('85\\cdot18\\%')
