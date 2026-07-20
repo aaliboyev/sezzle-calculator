@@ -30,12 +30,25 @@ body {
   margin: 0;
   min-height: 100svh;
   color: var(--text);
+  background: var(--bg);
+}
+
+/* The gradient lives on its own fixed layer sized to the large viewport, so
+   mobile URL-bar resizes and view-transition snapshots never repaint it.
+   (background-attachment: fixed is broken on iOS.) */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100lvh;
+  z-index: -1;
   background:
     radial-gradient(1100px 700px at 18% -12%, rgba(167, 139, 250, 0.16), transparent 60%),
     radial-gradient(950px 650px at 85% 112%, rgba(255, 140, 90, 0.14), transparent 60%),
     radial-gradient(700px 500px at 92% -8%, rgba(255, 176, 136, 0.07), transparent 55%),
     var(--bg);
-  background-attachment: fixed;
 }
 
 /* The transition overlay covers the viewport while animating; without this
@@ -53,10 +66,22 @@ body {
 }
 
 /* Every group ends at the same instant — staggered endings read as flicker. */
-::view-transition-group(*),
+::view-transition-group(*) {
+  animation-duration: 220ms;
+}
+
+/* Never animate the root: the full-viewport crossfade reads as the whole
+   background re-rendering (visibly so on mobile). Only named groups move.
+   The blend/isolation overrides prevent the plus-lighter double-exposure
+   when both snapshots sit at full opacity. */
+::view-transition-image-pair(root) {
+  isolation: auto;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 220ms;
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 ::view-transition-new(keypad),

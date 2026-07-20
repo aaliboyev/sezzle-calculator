@@ -13,6 +13,7 @@ export function useMathField() {
   const clearOutcome = useCalculator((s) => s.clearOutcome)
   const syncGuide = useCalculator((s) => s.syncGuide)
   const submit = useCalculator((s) => s.submit)
+  const togglePanel = useCalculator((s) => s.togglePanel)
 
   return useCallback(
     (field: MathfieldElement | null) => {
@@ -31,15 +32,24 @@ export function useMathField() {
           void submit()
         }
       }
+      // MathLive suppresses the native keyboard; on touch devices the app's
+      // own keypad opens with the field instead.
+      const onFocusIn = () => {
+        if (matchMedia('(pointer: coarse)').matches && useCalculator.getState().panel === 'none') {
+          togglePanel('keypad')
+        }
+      }
       field.addEventListener('input', onInput)
       field.addEventListener('keydown', onKeyDown, { capture: true })
+      field.addEventListener('focusin', onFocusIn)
       attachField(field)
       return () => {
         field.removeEventListener('input', onInput)
         field.removeEventListener('keydown', onKeyDown, { capture: true })
+        field.removeEventListener('focusin', onFocusIn)
         attachField(null)
       }
     },
-    [attachField, clearOutcome, syncGuide, submit],
+    [attachField, clearOutcome, syncGuide, submit, togglePanel],
   )
 }
