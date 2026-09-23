@@ -1,0 +1,124 @@
+.history {
+  display: flex;
+  flex-direction: column;
+  width: min(92vw, 470px);
+  max-height: min(50vh, 420px);
+  padding: 10px;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 14px;
+}
+
+.history-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.history-entry {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 10px 12px 16px;
+  border: none;
+  border-radius: 14px;
+  background: none;
+  color: var(--peach);
+  font-size: 1.05rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.history-entry:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* clip, not hidden: hidden makes the other axis auto, and a tall fraction
+   then grows its own vertical scrollbar. */
+.history-formula {
+  overflow-x: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-result {
+  color: var(--violet);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.history-action svg {
+  width: 17px;
+  height: 17px;
+}
+
+.history-row:hover .history-action,
+.history-action:focus-visible,
+.history-action[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.history-action:hover {
+  color: var(--peach);
+  background: var(--key-bg);
+}
+
+.history-action[aria-pressed='true'] {
+  color: var(--orange);
+}
+
+.history-empty {
+  margin: 18px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.history-clear {
+  margin-top: 6px;
+  padding: 10px;
+  border: none;
+  background: none;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.history-clear:hover {
+  color: var(--error);
+  background: rgba(255, 122, 110, 0.08);
+}
+
+/* Touch has no hover: keep row actions visible. */
+@media (pointer: coarse) {
+  .history-action {
+    opacity: 1;
+  }
+}

@@ -1,12 +1,11 @@
-import { useMathField } from '../hooks/useMathField'
 import { GuidePanel } from './GuidePanel'
+import { MathField } from './MathField'
 import { Outcome } from './Outcome'
 
 export function Display() {
-  const fieldRef = useMathField()
   return (
     <div className="stage">
-      <math-field ref={fieldRef} aria-label="expression" />
+      <MathField />
       <Outcome />
       <GuidePanel />
     </div>

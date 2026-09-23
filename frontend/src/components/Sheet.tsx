@@ -1,4 +1,5 @@
 import { useEffect, useState, type HTMLAttributes, type ReactNode } from 'react'
+import './Sheet.css'
 
 const EXIT_MS = 220
 
@@ -7,6 +8,7 @@ const EXIT_MS = 220
 // swap reads as a background flicker, most visibly on mobile).
 export function Sheet({
   open,
+  className,
   children,
   ...rest
 }: { open: boolean; children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
@@ -21,7 +23,7 @@ export function Sheet({
   }, [open])
   if (!open && !present) return null
   return (
-    <div {...rest} data-closing={open ? undefined : ''}>
+    <div {...rest} className={`sheet ${className ?? ''}`} data-closing={open ? undefined : ''}>
       {children}
     </div>
   )

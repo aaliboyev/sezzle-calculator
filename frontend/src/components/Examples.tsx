@@ -3,13 +3,15 @@ import { convertLatexToMarkup } from 'mathlive'
 import { sampleFormulas } from '../engine/formulas'
 import { scatterPositions } from '../lib/scatter'
 import { useCalculator } from '../store/calculator'
+import { useUi } from '../store/ui'
+import './Examples.css'
 
 const CARD_COUNT = 8
 
 export function Examples() {
-  const open = useCalculator((s) => s.examplesOpen)
-  const seed = useCalculator((s) => s.scatterSeed)
-  const setFormula = useCalculator((s) => s.setFormula)
+  const open = useUi((s) => s.examplesOpen)
+  const seed = useUi((s) => s.scatterSeed)
+  const load = useCalculator((s) => s.load)
   const cards = useMemo(() => {
     const positions = scatterPositions(seed, CARD_COUNT)
     return sampleFormulas(seed, CARD_COUNT).map((formula, i) => ({ formula, position: positions[i] }))
@@ -17,7 +19,7 @@ export function Examples() {
   if (!open) return null
   return (
     <aside className="examples" aria-label="example formulas">
-      {cards.map(({ formula, position }, i) => (
+      {cards.map(({ formula, position }) => (
         <button
           key={formula.name}
           type="button"
@@ -27,14 +29,13 @@ export function Examples() {
             {
               top: `${position.top}%`,
               left: `${position.left}%`,
-              viewTransitionName: `example-${i}`,
               '--tilt': `${position.tilt}deg`,
               '--drift-dur': `${position.driftDuration}s`,
               '--drift-delay': `${position.driftDelay}s`,
             } as CSSProperties
           }
           onPointerDown={(e) => e.preventDefault()}
-          onClick={() => setFormula(formula.latex)}
+          onClick={() => load(formula.latex)}
         >
           <span className="example-name">{formula.name}</span>
           {/* Markup is MathLive's converter over the catalog constants. */}

@@ -1,0 +1,35 @@
+math-field {
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  font-size: clamp(2.2rem, 7vw, 4rem);
+  color: var(--peach);
+  --caret-color: var(--orange);
+  --selection-background-color: rgba(167, 139, 250, 0.28);
+  --selection-color: var(--peach);
+  --contains-highlight-background-color: rgba(255, 140, 90, 0.12);
+  --smart-fence-color: var(--muted);
+  --placeholder-color: var(--violet);
+  --placeholder-opacity: 0.8;
+  padding: 8px 16px 18px;
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--violet-deep), var(--orange), transparent) 1;
+  transition: border-image-source 200ms ease;
+}
+
+math-field:focus-within {
+  outline: none;
+  border-image-source: linear-gradient(90deg, transparent, var(--violet), var(--peach-strong), transparent);
+}
+
+/* "safe" falls back to start-aligned when a long formula overflows, so
+   MathLive's caret-following scroll can still reach both ends. */
+math-field::part(content) {
+  justify-content: safe center;
+}
+
+math-field::part(virtual-keyboard-toggle),
+math-field::part(menu-toggle) {
+  display: none;
+}

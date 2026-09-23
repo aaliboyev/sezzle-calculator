@@ -1,6 +1,7 @@
 import { convertLatexToMarkup } from 'mathlive'
 import { useCalculator } from '../store/calculator'
 import { Diagram } from './diagrams'
+import './GuidePanel.css'
 
 export function GuidePanel() {
   const guide = useCalculator((s) => s.guide)
@@ -25,7 +26,7 @@ export function GuidePanel() {
           ))}
         </ol>
       </div>
-      <Diagram name={guide.name} values={guide.values} spec={guide.diagram} />
+      <Diagram guide={guide} />
     </section>
   )
 }

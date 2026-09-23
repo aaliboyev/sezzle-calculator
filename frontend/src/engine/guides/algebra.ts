@@ -1,8 +1,9 @@
 import type { Guide } from './types'
-import { show } from './helpers'
+import { formatLatex as show } from '../../lib/format'
 
 export const ALGEBRA: Guide[] = [
   {
+    id: 'discriminant',
     name: 'discriminant',
     intro:
       'The b²−4ac that decides how many real roots a quadratic has. Edit the coefficients and watch the parabola rise or fall through its axis.',
@@ -23,6 +24,7 @@ export const ALGEBRA: Guide[] = [
     },
   },
 {
+    id: 'golden-ratio',
     name: 'golden ratio',
     intro:
       'φ, built from the square root of five: add one and halve. Slice the largest square off a golden rectangle and the leftover strip is golden too.',
@@ -37,6 +39,7 @@ export const ALGEBRA: Guide[] = [
     },
   },
 {
+    id: 'weighted-average',
     name: 'weighted average',
     intro:
       'Each value pulled toward the mean in proportion to its weight. The heavier weight is the bigger dot, and the balance point sits nearer to it.',
@@ -57,6 +60,7 @@ export const ALGEBRA: Guide[] = [
     },
   },
 {
+    id: 'exponent-laws',
     name: 'exponent laws',
     intro:
       'Dividing powers of the same base subtracts their exponents. The base must match on top and bottom — that is what lets the shared factors cancel.',
@@ -71,6 +75,7 @@ export const ALGEBRA: Guide[] = [
     ],
   },
 {
+    id: 'midpoint',
     name: 'midpoint',
     intro:
       'The point exactly halfway between two values — their average. Add them and halve; on the number line it lands dead center.',

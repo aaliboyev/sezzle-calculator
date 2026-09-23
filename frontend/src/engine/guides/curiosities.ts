@@ -1,8 +1,9 @@
 import type { Guide } from './types'
-import { show } from './helpers'
+import { formatLatex as show } from '../../lib/format'
 
 export const CURIOSITIES: Guide[] = [
   {
+    id: 'e-by-compounding',
     name: 'e by compounding',
     intro:
       'Compound interest with ever-smaller, ever-more-frequent periods does not run away to infinity — it settles on e. Edit n and watch the multiplier shrink toward 1 while its power climbs toward 2.718.',
@@ -19,6 +20,7 @@ export const CURIOSITIES: Guide[] = [
     },
   },
 {
+    id: 'chessboard',
     name: 'chessboard',
     intro:
       'Put one grain of rice on the first square, then keep doubling — by the 64th square the count is a number no chessboard could hold. That final square is 2 raised to 63.',
@@ -34,6 +36,7 @@ export const CURIOSITIES: Guide[] = [
     },
   },
 {
+    id: 'big-and-tiny',
     name: 'big and tiny',
     intro:
       'A float carries only about 16 significant digits, so a number 30 orders of magnitude smaller falls off the end when added. Here 10¹⁵ simply swallows 10⁻¹⁵ whole.',
@@ -50,6 +53,7 @@ export const CURIOSITIES: Guide[] = [
     },
   },
 {
+    id: 'repeating-third',
     name: 'repeating third',
     intro:
       'One divided by three is the classic decimal that never resolves — the 3s march on forever. A float can only hold a finite slice of them, so it stores a rounded stand-in.',
@@ -63,6 +67,7 @@ export const CURIOSITIES: Guide[] = [
     ],
   },
 {
+    id: 'almost-pi',
     name: 'almost pi',
     intro:
       'Long before decimals, the fraction 355/113 was prized as a pocket-sized stand-in for π — it matches the real value out to six decimal places. Divide it out and compare.',

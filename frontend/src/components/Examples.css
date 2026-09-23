@@ -1,0 +1,89 @@
+/* Desktop: examples float in the empty space flanking the field.
+   Narrow screens: they fall back into flow as a wrapped row above the dock. */
+.examples {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  animation: fade-in 200ms ease both;
+}
+
+.example {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  max-width: 180px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--key-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--peach);
+  cursor: pointer;
+  opacity: 0.72;
+  text-align: left;
+  rotate: var(--tilt, 0deg);
+  animation: drift var(--drift-dur, 12s) ease-in-out var(--drift-delay, 0s) infinite alternate;
+}
+
+@keyframes drift {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 7px -11px;
+  }
+}
+
+.example:hover {
+  opacity: 1;
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--cat, var(--peach-strong)) 40%, transparent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.example-name {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cat, var(--muted));
+}
+
+.example-formula {
+  font-size: 1rem;
+}
+
+@media (max-width: 980px) {
+  .examples {
+    order: 3;
+    margin-top: auto;
+    margin-bottom: 92px;
+    position: static;
+    pointer-events: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    max-width: 92vw;
+  }
+
+  .example {
+    position: static;
+    max-width: 44vw;
+    padding: 8px 12px;
+    rotate: 0deg;
+    animation: none;
+  }
+
+  .example-formula {
+    font-size: 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .examples,
+  .example {
+    animation: none;
+  }
+}

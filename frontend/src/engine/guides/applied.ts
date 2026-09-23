@@ -1,8 +1,9 @@
 import type { Guide } from './types'
-import { show } from './helpers'
+import { formatLatex as show } from '../../lib/format'
 
 export const APPLIED: Guide[] = [
   {
+    id: 'zero-over-zero',
     name: 'zero over zero',
     intro:
       'Zero divided by zero is indeterminate — every number satisfies it, so none is the answer. The server flags it as undefined, a distinct refusal from ordinary division by zero.',
@@ -15,6 +16,7 @@ export const APPLIED: Guide[] = [
     ],
   },
 {
+    id: 'division-by-zero',
     name: 'division by zero',
     intro:
       'Dividing a real number by zero has no answer, so the server refuses instead of inventing one. No factor times zero can give back your numerator.',
@@ -28,6 +30,7 @@ export const APPLIED: Guide[] = [
     ],
   },
 {
+    id: 'root-of-a-negative',
     name: 'root of a negative',
     intro:
       'No real number squares to a negative, so the square root of a negative has no real answer and the server says so.',
@@ -42,6 +45,7 @@ export const APPLIED: Guide[] = [
     ],
   },
 {
+    id: 'overflow',
     name: 'overflow',
     intro:
       '10³⁰⁸ already sits near the ceiling of a 64-bit float; one more factor of ten tips it into infinity, which the server rejects.',
@@ -56,6 +60,7 @@ export const APPLIED: Guide[] = [
     ],
   },
 {
+    id: 'before-tax',
     name: 'before tax',
     intro:
       'Undo a tax you already paid by dividing back out the (1+rate) multiplier. It is the inverse of adding tax: build the same multiplier, then divide.',
@@ -71,6 +76,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'bmi',
     name: 'BMI',
     intro: 'Body-mass index is mass divided by height squared. Square the height first, then divide the mass by it.',
     latex: '\\frac{70}{1.75^2}',
@@ -84,6 +90,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'split-the-bill',
     name: 'split the bill',
     intro:
       'Add a tip to the total, then split it evenly among the table. The bill appears twice and both copies must stay equal — one bill, tipped.',
@@ -101,6 +108,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'mean-of-four',
     name: 'mean of four',
     intro: 'The same arithmetic mean as the three-value guide, with one more number. Sum all four, then divide by four.',
     latex: '\\frac{82+91+76+88}{4}',
@@ -117,6 +125,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'sum-of-squares',
     name: 'sum of squares',
     intro:
       'Square three numbers and add them — the kernel behind variance and squared distance. The three little 2s are the operation, not data, so they stay fixed.',
@@ -134,6 +143,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'cube-volume',
     name: 'cube volume',
     intro:
       'A cube\'s volume is its side length cubed — the side multiplied by itself three times. The exponent 3 is what "cube" means, so it stays fixed.',
@@ -145,6 +155,7 @@ export const APPLIED: Guide[] = [
     ],
   },
 {
+    id: 'root-of-a-power',
     name: 'root of a power',
     intro: 'A square root simply halves an exponent. Pull the exponent through the radical, then evaluate.',
     latex: '\\sqrt{10^6}',
@@ -161,6 +172,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'simple-interest',
     name: 'simple interest',
     intro:
       'Interest that never compounds — principal times rate times years, flat. One year\'s interest, stretched across the term.',
@@ -179,6 +191,7 @@ export const APPLIED: Guide[] = [
 {
     // Markup and sales tax share one structure; a neutral name avoids
     // mislabeling whichever catalog card was clicked.
+    id: 'scale-up-by-a-rate',
     name: 'scale up by a rate',
     intro:
       'Take an amount and scale it up by a rate — a markup, a tax, any surcharge. The (1+rate) multiplier keeps the whole and adds the slice in one move.',
@@ -194,6 +207,7 @@ export const APPLIED: Guide[] = [
     },
   },
 {
+    id: 'mass-energy',
     name: 'E = mc²',
     intro:
       'Mass turned into energy, in joules — mass times the speed of light squared. Only the mass is yours to change; c and its square are physical constants.',

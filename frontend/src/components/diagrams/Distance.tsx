@@ -1,5 +1,6 @@
 import { formatResult } from '../../lib/format'
-import { PlaneGrid, planeScales } from './plane'
+import { PlaneGrid } from './plane'
+import { planeScales } from './scales'
 import type { DiagramProps } from './types'
 
 export function DistanceDiagram({ values }: DiagramProps) {

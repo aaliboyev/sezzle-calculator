@@ -242,3 +242,133 @@ test('guided mode follows digit edits and drops on structure change', async ({ p
   await page.keyboard.press('Backspace')
   await expect(guide).toBeHidden()
 })
+
+test('a live preview follows typing and = commits it', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('6*7')
+  await expect(page.getByRole('status', { name: 'preview' })).toHaveText('= 42')
+  await expect(page.getByRole('status', { name: 'result' })).toBeHidden()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('42')
+  await expect(page.getByRole('status', { name: 'preview' })).toBeHidden()
+})
+
+test('a committed result is shareable and a shared link restores it', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/')
+  await page.locator('math-field').click()
+  await expect(page.locator('math-field')).toBeFocused()
+  await page.keyboard.type('1+sqrt9')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('4')
+  expect(page.url()).toContain('#e=')
+  await page.getByRole('button', { name: 'copy result' }).click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('4')
+  await page.getByRole('button', { name: 'copy link' }).click()
+  const link = await page.evaluate(() => navigator.clipboard.readText())
+
+  const fresh = await context.newPage()
+  await fresh.goto(link)
+  await expect(fresh.locator('math-field')).toHaveJSProperty('value', '1+\\sqrt9')
+  await expect(fresh.getByRole('status', { name: 'preview' })).toHaveText('= 4')
+})
+
+test('a shared link to a guided formula opens its guide', async ({ page }) => {
+  await page.goto('/#e=' + encodeURIComponent('\\sqrt{5^2+12^2}'))
+  await expect(page.locator('.guide')).toContainText('pythagoras')
+  await expect(page.locator('.guide .guide-diagram')).toBeVisible()
+})
+
+test('ans and history reuse earlier values', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('math-field').click()
+  await expect(page.locator('math-field')).toBeFocused()
+  await page.keyboard.type('1-8')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('-7')
+  await page.getByRole('button', { name: 'toggle keypad' }).click()
+  for (const key of ['AC', '2', '×', 'ans', '=']) {
+    await page.getByRole('button', { name: key, exact: true }).click()
+  }
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('-14')
+
+  await page.getByRole('button', { name: 'AC', exact: true }).click()
+  await page.getByRole('button', { name: 'toggle history' }).click()
+  await page.locator('.history-row').filter({ hasText: '= -7' }).getByRole('button', { name: 'insert value' }).click()
+  await expect(page.locator('math-field')).toHaveJSProperty('value', '(-7)')
+  await page.keyboard.type('+1')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('-6')
+})
+
+test('pinned history stays on top and survives clearing', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  for (const expr of ['1+1', '2+2']) {
+    await page.keyboard.press('ControlOrMeta+a')
+    await page.keyboard.type(expr)
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('status', { name: 'result' })).toBeVisible()
+  }
+  await page.getByRole('button', { name: 'toggle history' }).click()
+  const rows = page.locator('.history-row')
+  await rows.filter({ hasText: '= 2' }).getByRole('button', { name: 'pin' }).click()
+  await expect(rows.first()).toContainText('= 2')
+  await page.getByRole('button', { name: 'clear history' }).click()
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first().getByRole('button', { name: 'unpin' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'clear history' })).toBeHidden()
+})
+
+test('search finds formulas and history from the keyboard', async ({ page }) => {
+  await page.goto('/')
+  const field = page.locator('math-field')
+  await field.click()
+  await expect(field).toBeFocused()
+  await page.keyboard.type('6*7')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toHaveText('42')
+
+  await page.keyboard.press('ControlOrMeta+k')
+  const input = page.getByRole('combobox', { name: 'search formulas and history' })
+  await expect(input).toBeFocused()
+  await input.fill('42')
+  await expect(page.getByRole('option').first()).toContainText('= 42')
+  await input.fill('golden')
+  await page.keyboard.press('Enter')
+  await expect(input).toBeHidden()
+  await expect(field).toHaveJSProperty('value', '\\frac{1+\\sqrt{5}}{2}')
+  await expect(field).toBeFocused()
+
+  await page.keyboard.press('ControlOrMeta+k')
+  await input.fill('zzzz')
+  await expect(page.getByText('nothing matches')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(input).toBeHidden()
+})
+
+test('tall formulas in lists never grow their own scrollbar', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'formula library' }).click()
+  await page.locator('.formulas').getByRole('button', { name: /compound growth/ }).click()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status', { name: 'result' })).toBeVisible()
+  const scrolls = (selector: string) =>
+    page.locator(selector).evaluateAll((els) =>
+      els.filter((el) => el.scrollHeight > el.clientHeight + 1 && getComputedStyle(el).overflowY !== 'visible').length,
+    )
+  await page.getByRole('button', { name: 'toggle history' }).click()
+  await expect(page.locator('.history-formula')).toHaveCount(1)
+  expect(await scrolls('.history *')).toBe(0)
+  await page.getByRole('button', { name: 'formula library' }).click()
+  await expect(page.locator('.formula-entry').first()).toBeVisible()
+  expect(await scrolls('.formula-entry, .formula-entry *')).toBe(0)
+  await page.getByRole('button', { name: 'search' }).click()
+  await expect(page.getByRole('option').first()).toBeVisible()
+  expect(await scrolls('.search-result, .search-result *')).toBe(0)
+})

@@ -1,0 +1,47 @@
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  width: min(92vw, 430px);
+  padding: 14px;
+}
+
+.key {
+  font-family: inherit;
+  font-size: 1.15rem;
+  padding: 15px 0;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: var(--key-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    transform 80ms ease;
+}
+
+.key:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.key:active {
+  transform: scale(0.95);
+}
+
+.key.op {
+  color: var(--peach-strong);
+}
+
+.key.action {
+  color: var(--violet);
+}
+
+.key.equals {
+  background: linear-gradient(135deg, var(--peach-strong), var(--violet));
+  color: #1c1026;
+  font-weight: 600;
+}
+
+.key.equals:hover {
+  filter: brightness(1.08);
+}

@@ -1,8 +1,9 @@
 import type { Guide } from './types'
-import { show } from './helpers'
+import { formatLatex as show } from '../../lib/format'
 
 export const GEOMETRY: Guide[] = [
   {
+    id: 'distance',
     name: 'distance',
     intro:
       'The straight-line distance between two points is pythagoras applied to their coordinate gaps. Move either point by editing the numbers — the segment and the steps follow.',
@@ -26,6 +27,7 @@ export const GEOMETRY: Guide[] = [
     },
   },
 {
+    id: 'slope',
     name: 'slope',
     intro:
       'The slope of a line is how much it rises for every step it runs. Edit the four coordinates and the rise-over-run triangle updates with the ratio.',
@@ -42,6 +44,7 @@ export const GEOMETRY: Guide[] = [
     },
   },
 {
+    id: 'triangle-area',
     name: 'triangle area',
     intro:
       'A triangle covers exactly half of the rectangle around its base and height. Edit either one and the shape and the halving step respond.',
@@ -56,6 +59,7 @@ export const GEOMETRY: Guide[] = [
     },
   },
 {
+    id: 'square-diagonal',
     name: 'square diagonal',
     intro:
       'The diagonal of a square is always its side length times the square root of two. Change the side and both labels update from the same value.',
@@ -67,6 +71,7 @@ export const GEOMETRY: Guide[] = [
     ],
   },
 {
+    id: 'geometric-mean',
     name: 'geometric mean',
     intro:
       'The geometric mean is the side of the square whose area equals the a-by-b rectangle — the multiplicative middle of the two numbers.',

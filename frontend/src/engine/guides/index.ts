@@ -51,13 +51,7 @@ export function matchGuide(latex: string): GuideMatch | null {
   for (const guide of GUIDES) {
     const values: GuideValues = {}
     if (matchNode(json, guide.template, values) && (guide.accept?.(values, latex) ?? true)) {
-      return {
-        name: guide.name,
-        intro: guide.intro,
-        values,
-        steps: guide.steps(values),
-        diagram: guide.diagram?.(values) ?? null,
-      }
+      return { id: guide.id, name: guide.name, intro: guide.intro, values, steps: guide.steps(values) }
     }
   }
   return null

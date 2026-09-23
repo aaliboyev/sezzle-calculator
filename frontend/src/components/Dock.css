@@ -1,0 +1,43 @@
+.dock {
+  position: fixed;
+  z-index: 2;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+}
+
+.dock-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--key-border);
+  background: var(--key-bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dock-button:hover {
+  color: var(--peach);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.dock-button[aria-expanded='true'] {
+  color: var(--orange);
+  border-color: rgba(255, 140, 90, 0.4);
+}
+
+@media (max-width: 420px) {
+  .dock {
+    gap: 8px;
+  }
+
+  .dock-button {
+    width: 46px;
+    height: 46px;
+  }
+}

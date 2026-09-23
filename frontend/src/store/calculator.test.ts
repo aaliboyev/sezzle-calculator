@@ -1,328 +1,294 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MathfieldElement } from 'mathlive'
+import { editor } from '../editor/field'
 import { useCalculator } from './calculator'
+import { useHistory } from './history'
+import { useUi } from './ui'
 
-function fakeField(latex: string) {
-  return {
-    value: latex,
-    executeCommand: vi.fn(),
-    focus: vi.fn(),
-  } as unknown as MathfieldElement & { executeCommand: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn> }
+type FakeField = MathfieldElement & {
+  executeCommand: ReturnType<typeof vi.fn>
+  focus: ReturnType<typeof vi.fn>
 }
 
-function stubFetch(impl: () => Promise<Response>) {
-  const spy = vi.fn(impl)
+// Mirrors the one MathLive behavior the store depends on: inserts append.
+function attachField(latex = ''): FakeField {
+  const field = {
+    value: latex,
+    executeCommand: vi.fn((cmd: unknown) => {
+      if (Array.isArray(cmd) && cmd[0] === 'insert') field.value += cmd[1]
+      if (cmd === 'deleteBackward') field.value = field.value.slice(0, -1)
+    }),
+    focus: vi.fn(),
+  }
+  editor.attach(field as unknown as MathfieldElement)
+  return field as unknown as FakeField
+}
+
+function stubFetch(...results: number[]) {
+  const spy = vi.fn((_url: string, init: RequestInit) => {
+    const result = results.length > 1 ? results.shift() : results[0]
+    return init.signal?.aborted
+      ? Promise.reject(new DOMException('aborted', 'AbortError'))
+      : Promise.resolve(new Response(JSON.stringify({ result }), { status: 200 }))
+  })
   vi.stubGlobal('fetch', spy)
   return spy
 }
 
-beforeEach(() => {
-  useCalculator.setState({
-    field: null,
-    outcome: null,
-    panel: 'none',
-    history: [],
-    guide: null,
-    guideStale: false,
-    examplesOpen: true,
-    scatterSeed: 1,
-  })
-})
+const state = () => useCalculator.getState()
 
-function okResponse(result: number) {
-  return () => Promise.resolve(new Response(JSON.stringify({ result }), { status: 200 }))
+function typeInto(field: FakeField, latex: string) {
+  field.value = latex
+  state().edit(latex)
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals()
+beforeEach(() => {
+  state().edit('')
+  useCalculator.setState({ latex: '', committed: null, preview: null, guide: null, guideStale: false })
+  useHistory.setState({ entries: [] })
+  useUi.setState({ panel: 'none', examplesOpen: true, scatterSeed: 1 })
 })
 
-describe('submit', () => {
-  it('does nothing without an attached field', async () => {
-    const spy = stubFetch(() => Promise.resolve(new Response('{}')))
-    await useCalculator.getState().submit()
-    expect(spy).not.toHaveBeenCalled()
-    expect(useCalculator.getState().outcome).toBeNull()
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+  editor.attach(null)
+})
+
+describe('live preview', () => {
+  it('evaluates after a short pause, not on every keystroke', async () => {
+    vi.useFakeTimers()
+    const spy = stubFetch(42)
+    const field = attachField()
+    typeInto(field, '7\\cdot')
+    typeInto(field, '7\\cdot6')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(state().preview).toBe(42)
+    expect(state().committed).toBeNull()
   })
 
-  it('does nothing for an empty field', async () => {
-    const spy = stubFetch(() => Promise.resolve(new Response('{}')))
-    useCalculator.setState({ field: fakeField('') })
-    await useCalculator.getState().submit()
+  it('shows no preview for an expression that does not evaluate', async () => {
+    vi.useFakeTimers()
+    const spy = stubFetch(1)
+    typeInto(attachField(), '2+')
+    await vi.advanceTimersByTimeAsync(200)
     expect(spy).not.toHaveBeenCalled()
-    expect(useCalculator.getState().outcome).toBeNull()
+    expect(state().preview).toBeNull()
+  })
+
+  it('drops a preview whose latex was edited away meanwhile', async () => {
+    vi.useFakeTimers()
+    stubFetch(4)
+    const field = attachField()
+    typeInto(field, '2+2')
+    await vi.advanceTimersByTimeAsync(160)
+    typeInto(field, '2+2+')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(state().preview).toBeNull()
+  })
+})
+
+describe('commit', () => {
+  it('does nothing for an empty field', async () => {
+    const spy = stubFetch(1)
+    attachField('')
+    await state().commit()
+    expect(spy).not.toHaveBeenCalled()
+    expect(state().committed).toBeNull()
   })
 
   it('shows translation errors without contacting the server', async () => {
-    const spy = stubFetch(() => Promise.resolve(new Response('{}')))
-    useCalculator.setState({ field: fakeField('x+1') })
-    await useCalculator.getState().submit()
+    const spy = stubFetch(1)
+    attachField('x+1')
+    await state().commit()
     expect(spy).not.toHaveBeenCalled()
-    expect(useCalculator.getState().outcome).toEqual({ kind: 'error', message: 'unsupported: x' })
-  })
-
-  it('formats a successful result', async () => {
-    stubFetch(() =>
-      Promise.resolve(new Response(JSON.stringify({ result: 0.30000000000000004 }), { status: 200 })),
-    )
-    useCalculator.setState({ field: fakeField('0.1+0.2') })
-    await useCalculator.getState().submit()
-    expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '0.3' })
+    expect(state().committed).toEqual({ kind: 'error', message: 'unsupported: x' })
   })
 
   it('shows backend errors', async () => {
-    stubFetch(() =>
-      Promise.resolve(
-        new Response(
-          JSON.stringify({ error: { code: 'division_by_zero', message: 'division by zero' } }),
-          { status: 422 },
-        ),
-      ),
-    )
-    useCalculator.setState({ field: fakeField('\\frac{1}{0}') })
-    await useCalculator.getState().submit()
-    expect(useCalculator.getState().outcome).toEqual({ kind: 'error', message: 'division by zero' })
-  })
-
-  it('ignores a stale response that lands after a newer submit', async () => {
-    let releaseFirst!: (r: Response) => void
-    const first = new Promise<Response>((resolve) => {
-      releaseFirst = resolve
-    })
-    const spy = stubFetch(() => first)
-    useCalculator.setState({ field: fakeField('1+1') })
-    const firstSubmit = useCalculator.getState().submit()
-
-    spy.mockImplementation(() =>
-      Promise.resolve(new Response(JSON.stringify({ result: 4 }), { status: 200 })),
-    )
-    useCalculator.setState({ field: fakeField('2+2') })
-    await useCalculator.getState().submit()
-    expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '4' })
-
-    releaseFirst(new Response(JSON.stringify({ result: 2 }), { status: 200 }))
-    await firstSubmit
-    expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '4' })
-  })
-})
-
-describe('pressKey', () => {
-  it('inserts and refocuses, clearing the previous outcome', () => {
-    const field = fakeField('')
-    useCalculator.setState({ field, outcome: { kind: 'result', text: '1' } })
-    useCalculator.getState().pressKey('√', '\\sqrt{#0}')
-    expect(field.executeCommand).toHaveBeenCalledWith(['insert', '\\sqrt{#0}'])
-    expect(field.focus).toHaveBeenCalled()
-    expect(useCalculator.getState().outcome).toBeNull()
-  })
-
-  it('falls back to the label when no insert is given', () => {
-    const field = fakeField('')
-    useCalculator.setState({ field })
-    useCalculator.getState().pressKey('7')
-    expect(field.executeCommand).toHaveBeenCalledWith(['insert', '7'])
-  })
-
-  it('AC empties the field and outcome', () => {
-    const field = fakeField('1+1')
-    useCalculator.setState({ field, outcome: { kind: 'error', message: 'x' } })
-    useCalculator.getState().pressKey('AC')
-    expect(field.value).toBe('')
-    expect(useCalculator.getState().outcome).toBeNull()
-  })
-
-  it('backspace deletes backward', () => {
-    const field = fakeField('12')
-    useCalculator.setState({ field })
-    useCalculator.getState().pressKey('⌫')
-    expect(field.executeCommand).toHaveBeenCalledWith('deleteBackward')
-  })
-
-  it('= submits the field content', async () => {
-    stubFetch(() => Promise.resolve(new Response(JSON.stringify({ result: 42 }), { status: 200 })))
-    useCalculator.setState({ field: fakeField('7\\times6') })
-    useCalculator.getState().pressKey('=')
-    await vi.waitFor(() => {
-      expect(useCalculator.getState().outcome).toEqual({ kind: 'result', text: '42' })
-    })
-  })
-
-  it('is a no-op without a field', () => {
-    expect(() => useCalculator.getState().pressKey('7')).not.toThrow()
-  })
-})
-
-describe('syncGuide', () => {
-  it('activates on a matching formula and follows its digits', () => {
-    useCalculator.getState().syncGuide('85\\cdot18\\%')
-    expect(useCalculator.getState().guide).toMatchObject({ name: 'tip', values: { a: 85, r: 0.18 } })
-    useCalculator.getState().syncGuide('90\\cdot20\\%')
-    expect(useCalculator.getState().guide?.values).toEqual({ a: 90, r: 0.2 })
-  })
-
-  it('debounces a broken pattern into a paused state instead of hiding', () => {
-    vi.useFakeTimers()
-    useCalculator.getState().syncGuide('85\\cdot18\\%')
-    useCalculator.getState().syncGuide('85\\cdot18\\%+1')
-    expect(useCalculator.getState().guide?.name).toBe('tip')
-    expect(useCalculator.getState().guideStale).toBe(false)
-    vi.advanceTimersByTime(1100)
-    expect(useCalculator.getState().guideStale).toBe(true)
-    useCalculator.getState().syncGuide('85\\cdot20\\%')
-    expect(useCalculator.getState().guideStale).toBe(false)
-    expect(useCalculator.getState().guide?.values).toEqual({ a: 85, r: 0.2 })
-    vi.useRealTimers()
-  })
-
-  it('a match within the debounce window never pauses', () => {
-    vi.useFakeTimers()
-    useCalculator.getState().syncGuide('85\\cdot18\\%')
-    useCalculator.getState().syncGuide('85\\cdot')
-    vi.advanceTimersByTime(400)
-    useCalculator.getState().syncGuide('85\\cdot20\\%')
-    vi.advanceTimersByTime(2000)
-    expect(useCalculator.getState().guideStale).toBe(false)
-    expect(useCalculator.getState().guide?.values.r).toBe(0.2)
-    vi.useRealTimers()
-  })
-
-  it('clears immediately when the field empties', () => {
-    useCalculator.getState().syncGuide('85\\cdot18\\%')
-    useCalculator.getState().syncGuide('')
-    expect(useCalculator.getState().guide).toBeNull()
-    expect(useCalculator.getState().guideStale).toBe(false)
-  })
-})
-
-describe('setFormula guide integration', () => {
-  it('activates the guide for a recognized formula', () => {
-    useCalculator.setState({ field: fakeField('') })
-    useCalculator.getState().setFormula('\\sqrt{3^2+4^2}')
-    expect(useCalculator.getState().guide?.name).toBe('pythagoras')
-  })
-})
-
-describe('toggleExamples', () => {
-  it('hides without reseeding and rescatters on reopen', () => {
-    useCalculator.getState().toggleExamples()
-    expect(useCalculator.getState().examplesOpen).toBe(false)
-    expect(useCalculator.getState().scatterSeed).toBe(1)
-    useCalculator.getState().toggleExamples()
-    expect(useCalculator.getState().examplesOpen).toBe(true)
-    expect(useCalculator.getState().scatterSeed).toBe(2)
-  })
-})
-
-describe('setFormula', () => {
-  it('replaces the field content, closes panels, clears the outcome', () => {
-    const field = fakeField('1+1')
-    useCalculator.setState({ field, panel: 'keypad', outcome: { kind: 'result', text: '2' } })
-    useCalculator.getState().setFormula('\\sqrt{3^2+4^2}')
-    expect(field.value).toBe('\\sqrt{3^2+4^2}')
-    expect(field.focus).toHaveBeenCalled()
-    expect(useCalculator.getState().panel).toBe('none')
-    expect(useCalculator.getState().outcome).toBeNull()
-  })
-
-  it('is a no-op without a field', () => {
-    expect(() => useCalculator.getState().setFormula('1')).not.toThrow()
-  })
-})
-
-describe('togglePanel', () => {
-  it('toggles a panel and closes it on repeat', () => {
-    useCalculator.getState().togglePanel('keypad')
-    expect(useCalculator.getState().panel).toBe('keypad')
-    useCalculator.getState().togglePanel('keypad')
-    expect(useCalculator.getState().panel).toBe('none')
-  })
-
-  it('panels are exclusive', () => {
-    useCalculator.getState().togglePanel('keypad')
-    useCalculator.getState().togglePanel('history')
-    expect(useCalculator.getState().panel).toBe('history')
-  })
-})
-
-describe('history', () => {
-  it('records a successful calculation with its hash', async () => {
-    stubFetch(okResponse(42))
-    useCalculator.setState({ field: fakeField('7\\times6') })
-    await useCalculator.getState().submit()
-    const { history } = useCalculator.getState()
-    expect(history).toHaveLength(1)
-    expect(history[0]).toMatchObject({ latex: '7\\times6', result: '42' })
-    expect(history[0].hash).toMatch(/^[0-9a-f]{8}$/)
-  })
-
-  it('does not record failed calculations', async () => {
-    stubFetch(() =>
+    vi.stubGlobal('fetch', () =>
       Promise.resolve(
         new Response(JSON.stringify({ error: { code: 'division_by_zero', message: 'division by zero' } }), {
           status: 422,
         }),
       ),
     )
-    useCalculator.setState({ field: fakeField('\\frac{1}{0}') })
-    await useCalculator.getState().submit()
-    expect(useCalculator.getState().history).toHaveLength(0)
+    attachField('\\frac{1}{0}')
+    await state().commit()
+    expect(state().committed).toEqual({ kind: 'error', message: 'division by zero' })
+    expect(useHistory.getState().entries).toEqual([])
   })
 
-  it('dedupes by hash, moving the entry to the top', async () => {
-    stubFetch(okResponse(2))
-    useCalculator.setState({ field: fakeField('1+1') })
-    await useCalculator.getState().submit()
-    stubFetch(okResponse(4))
-    useCalculator.setState({ field: fakeField('2+2') })
-    await useCalculator.getState().submit()
-    stubFetch(okResponse(2))
-    useCalculator.setState({ field: fakeField('1+1') })
-    await useCalculator.getState().submit()
-    const latexes = useCalculator.getState().history.map((h) => h.latex)
-    expect(latexes).toEqual(['1+1', '2+2'])
+  it('records the value in history and the share hash', async () => {
+    stubFetch(42)
+    const replaceState = vi.fn()
+    vi.stubGlobal('history', { replaceState })
+    attachField('7\\cdot6')
+    await state().commit()
+    expect(state().committed).toEqual({ kind: 'value', value: 42 })
+    expect(useHistory.getState().entries[0]).toMatchObject({ latex: '7\\cdot6', value: 42 })
+    expect(replaceState).toHaveBeenCalledWith(null, '', '#e=7%5Ccdot6')
   })
 
-  it('caps the history length', async () => {
-    const full = Array.from({ length: 50 }, (_, i) => ({
-      hash: String(i).padStart(8, '0'),
-      latex: `${i}`,
-      result: `${i}`,
-      at: i,
-    }))
-    useCalculator.setState({ history: full, field: fakeField('9+9') })
-    stubFetch(okResponse(18))
-    await useCalculator.getState().submit()
-    const { history } = useCalculator.getState()
-    expect(history).toHaveLength(50)
-    expect(history[0].latex).toBe('9+9')
+  it('reuses the in-flight preview for the same latex', async () => {
+    vi.useFakeTimers()
+    const spy = stubFetch(42)
+    typeInto(attachField(), '7\\cdot6')
+    await vi.advanceTimersByTimeAsync(160)
+    await state().commit()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(state().committed).toEqual({ kind: 'value', value: 42 })
+    expect(state().preview).toBeNull()
   })
 
-  it('recall re-inputs the latex, closes the panel and clears the outcome', () => {
-    const field = fakeField('')
-    useCalculator.setState({
-      field,
-      panel: 'history',
-      outcome: { kind: 'result', text: '42' },
-      history: [{ hash: 'abcd1234', latex: '7\\times6', result: '42', at: 1 }],
-    })
-    useCalculator.getState().recall('abcd1234')
-    expect(field.value).toBe('7\\times6')
+  it('ignores a result that lands after the field changed', async () => {
+    let release: (r: Response) => void = () => {}
+    vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => (release = resolve)))
+    const field = attachField('1+1')
+    const pending = state().commit()
+    typeInto(field, '1+1+')
+    release(new Response(JSON.stringify({ result: 2 }), { status: 200 }))
+    await pending
+    expect(state().committed).toBeNull()
+    expect(useHistory.getState().entries).toEqual([])
+  })
+})
+
+describe('press', () => {
+  it('inserts, refocuses, and clears the committed outcome', () => {
+    const field = attachField('')
+    useCalculator.setState({ committed: { kind: 'value', value: 1 } })
+    state().press('√', '\\sqrt{#0}')
+    expect(field.executeCommand).toHaveBeenCalledWith(['insert', '\\sqrt{#0}'])
     expect(field.focus).toHaveBeenCalled()
-    expect(useCalculator.getState().panel).toBe('none')
-    expect(useCalculator.getState().outcome).toBeNull()
+    expect(state().committed).toBeNull()
   })
 
-  it('recall of an unknown hash is a no-op', () => {
-    const field = fakeField('1+1')
-    useCalculator.setState({ field, panel: 'history' })
-    useCalculator.getState().recall('ffffffff')
-    expect(field.value).toBe('1+1')
-    expect(useCalculator.getState().panel).toBe('history')
+  it('falls back to the label when no insert is given', () => {
+    const field = attachField('')
+    state().press('7')
+    expect(field.executeCommand).toHaveBeenCalledWith(['insert', '7'])
   })
 
-  it('clearHistory empties the list', () => {
-    useCalculator.setState({ history: [{ hash: 'a', latex: '1', result: '1', at: 1 }] })
-    useCalculator.getState().clearHistory()
-    expect(useCalculator.getState().history).toHaveLength(0)
+  it('AC empties the field, outcome, and guide', () => {
+    const field = attachField('')
+    state().load('\\sqrt{3^2+4^2}')
+    useCalculator.setState({ committed: { kind: 'error', message: 'x' } })
+    state().press('AC')
+    expect(field.value).toBe('')
+    expect(state().committed).toBeNull()
+    expect(state().guide).toBeNull()
+  })
+
+  it('backspace deletes backward', () => {
+    const field = attachField('12')
+    state().press('⌫')
+    expect(field.executeCommand).toHaveBeenCalledWith('deleteBackward')
+    expect(field.value).toBe('1')
+  })
+
+  it('= commits the field content', async () => {
+    stubFetch(42)
+    attachField('7\\times6')
+    state().press('=')
+    await vi.waitFor(() => expect(state().committed).toEqual({ kind: 'value', value: 42 }))
+  })
+
+  it('ans inserts the latest value, as latex and parenthesized when negative', () => {
+    const field = attachField('2\\cdot')
+    useHistory.setState({
+      entries: [
+        { hash: 'a', latex: '1-8', value: -7, at: 2, pinned: false },
+        { hash: 'b', latex: '1', value: 1, at: 3, pinned: true },
+      ],
+    })
+    state().press('ans')
+    expect(field.value).toBe('2\\cdot1')
+    useHistory.setState({ entries: [{ hash: 'a', latex: '1-8', value: -7e-9, at: 9, pinned: false }] })
+    state().press('ans')
+    expect(field.value).toBe('2\\cdot1(-7\\times10^{-9})')
+  })
+
+  it('ans does nothing without history', () => {
+    const field = attachField('')
+    state().press('ans')
+    expect(field.value).toBe('')
+  })
+
+  it('is a no-op without a field', () => {
+    expect(() => state().press('7')).not.toThrow()
+  })
+})
+
+describe('guide', () => {
+  it('activates on a matching formula and follows its digits', async () => {
+    vi.useFakeTimers()
+    stubFetch(1)
+    const field = attachField()
+    typeInto(field, '85\\cdot18\\%')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(state().guide).toMatchObject({ id: 'tip', values: { a: 85, r: 0.18 } })
+    typeInto(field, '90\\cdot20\\%')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(state().guide?.values).toEqual({ a: 90, r: 0.2 })
+  })
+
+  it('pauses a broken pattern after a delay instead of hiding it', async () => {
+    vi.useFakeTimers()
+    stubFetch(1)
+    const field = attachField()
+    typeInto(field, '85\\cdot18\\%')
+    await vi.advanceTimersByTimeAsync(200)
+    typeInto(field, '85\\cdot18\\%+1')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(state().guide?.id).toBe('tip')
+    expect(state().guideStale).toBe(false)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(state().guideStale).toBe(true)
+    typeInto(field, '85\\cdot20\\%')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(state().guideStale).toBe(false)
+  })
+
+  it('a match within the pause never dims', async () => {
+    vi.useFakeTimers()
+    stubFetch(1)
+    const field = attachField()
+    typeInto(field, '85\\cdot18\\%')
+    await vi.advanceTimersByTimeAsync(200)
+    typeInto(field, '85\\cdot')
+    await vi.advanceTimersByTimeAsync(400)
+    typeInto(field, '85\\cdot20\\%')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(state().guideStale).toBe(false)
+    expect(state().guide?.values.r).toBe(0.2)
+  })
+
+  it('clears immediately when the field empties', async () => {
+    vi.useFakeTimers()
+    stubFetch(1)
+    const field = attachField()
+    typeInto(field, '85\\cdot18\\%')
+    await vi.advanceTimersByTimeAsync(200)
+    typeInto(field, '')
+    expect(state().guide).toBeNull()
+    expect(state().guideStale).toBe(false)
+  })
+})
+
+describe('load', () => {
+  it('replaces the field, closes panels, clears the outcome, and evaluates at once', async () => {
+    stubFetch(5)
+    const field = attachField('1+1')
+    useUi.setState({ panel: 'keypad' })
+    useCalculator.setState({ committed: { kind: 'value', value: 2 } })
+    state().load('\\sqrt{3^2+4^2}')
+    expect(field.value).toBe('\\sqrt{3^2+4^2}')
+    expect(field.focus).toHaveBeenCalled()
+    expect(useUi.getState().panel).toBe('none')
+    expect(state().committed).toBeNull()
+    await vi.waitFor(() => expect(state().preview).toBe(5))
+    expect(state().guide?.id).toBe('pythagoras')
   })
 })

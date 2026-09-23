@@ -1,35 +1,62 @@
 import { convertLatexToMarkup } from 'mathlive'
+import { formatResult } from '../lib/format'
 import { useCalculator } from '../store/calculator'
+import { useHistory } from '../store/history'
+import { useUi } from '../store/ui'
+import { InsertIcon, PinIcon } from './icons'
 import { Sheet } from './Sheet'
+import './HistoryPanel.css'
 
 export function HistoryPanel() {
-  const open = useCalculator((s) => s.panel === 'history')
-  const history = useCalculator((s) => s.history)
-  const recall = useCalculator((s) => s.recall)
-  const clearHistory = useCalculator((s) => s.clearHistory)
+  const open = useUi((s) => s.panel === 'history')
+  const entries = useHistory((s) => s.entries)
+  const { togglePin, clear } = useHistory.getState()
+  const { load, insertValue } = useCalculator.getState()
+  const hasUnpinned = entries.some((e) => !e.pinned)
   return (
     <Sheet open={open} className="history" aria-label="history" onPointerDown={(e) => e.preventDefault()}>
-      {history.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="history-empty">no calculations yet</p>
       ) : (
         <>
           <ul className="history-list">
-            {history.map((entry) => (
-              <li key={entry.hash}>
-                <button type="button" className="history-entry" onClick={() => recall(entry.hash)}>
+            {entries.map((entry) => (
+              <li key={entry.hash} className={entry.pinned ? 'history-row pinned' : 'history-row'}>
+                <button type="button" className="history-entry" onClick={() => load(entry.latex)}>
                   {/* Markup is MathLive's converter over LaTeX this client stored itself; no foreign HTML enters here. */}
                   <span
                     className="history-formula"
                     dangerouslySetInnerHTML={{ __html: convertLatexToMarkup(entry.latex) }}
                   />
-                  <span className="history-result">= {entry.result}</span>
+                  <span className="history-result">= {formatResult(entry.value)}</span>
+                </button>
+                <button
+                  type="button"
+                  className="history-action"
+                  aria-label="insert value"
+                  title="insert value"
+                  onClick={() => insertValue(entry.value)}
+                >
+                  <InsertIcon />
+                </button>
+                <button
+                  type="button"
+                  className="history-action"
+                  aria-label={entry.pinned ? 'unpin' : 'pin'}
+                  aria-pressed={entry.pinned}
+                  title={entry.pinned ? 'unpin' : 'pin'}
+                  onClick={() => togglePin(entry.hash)}
+                >
+                  <PinIcon filled={entry.pinned} />
                 </button>
               </li>
             ))}
           </ul>
-          <button type="button" className="history-clear" onClick={clearHistory}>
-            clear history
-          </button>
+          {hasUnpinned && (
+            <button type="button" className="history-clear" onClick={clear}>
+              clear history
+            </button>
+          )}
         </>
       )}
     </Sheet>

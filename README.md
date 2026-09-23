@@ -23,7 +23,10 @@ step-by-step explanations and diagrams that redraw as you edit the digits.
 - **Guided formulas** — 37 recognized patterns (pythagoras, compound growth, discriminant, e-by-compounding, …) explain themselves with worked steps computed from your actual digits. Edit a number and the steps follow; 17 patterns draw reactive SVG diagrams — the triangle re-scales, the parabola's roots follow the discriminant's sign.
 - **Formula library** — ~40 formulas in seven color-coded categories (geometry, money, statistics, roots & powers, curiosities, science, edge cases), one click from browsing to computing.
 - **Living example cards** — a seeded random sample drifts slowly around the free space; the scatter button deals a fresh hand in fresh positions.
-- **History** — every successful `=` is stored locally, deduped by an 8-char hash of the formula, capped at 50; selecting an entry re-inputs its LaTeX.
+- **Live preview** — the result appears faintly under the field while you type; `=` commits it.
+- **History** — every successful `=` is stored locally, deduped by an 8-char hash of the formula, capped at 50 unpinned entries. Selecting an entry re-inputs its LaTeX; pinned entries stay on top and survive clearing. The `ans` key and each entry's insert button reuse earlier values.
+- **Search** — `⌘K` / `Ctrl+K` filters the formula library and history in one list.
+- **Share links** — the committed expression lives in the URL (`#e=…`); opening a link restores the formula and its guide. Results have copy-value and copy-link buttons.
 - **Honest math** — the backend evaluates with real float64 semantics: division by zero, `0/0`, `√-9`, and overflow return specific structured errors instead of invented numbers; `0.1+0.2` returns the honest float and the display rounds the noise.
 - **One binary** — the production build embeds the frontend into the Go binary; the Docker image is distroless and runs as nonroot with a strict CSP.
 

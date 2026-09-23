@@ -1,13 +1,20 @@
 import { convertLatexToMarkup } from 'mathlive'
 import { CATEGORIES, FORMULAS } from '../engine/formulas'
 import { useCalculator } from '../store/calculator'
+import { useUi } from '../store/ui'
 import { Sheet } from './Sheet'
+import './FormulasPanel.css'
 
 export function FormulasPanel() {
-  const open = useCalculator((s) => s.panel === 'formulas')
-  const setFormula = useCalculator((s) => s.setFormula)
+  const open = useUi((s) => s.panel === 'formulas')
+  const load = useCalculator((s) => s.load)
   return (
-    <Sheet open={open} className="formulas" aria-label="formula library" onPointerDown={(e) => e.preventDefault()}>
+    <Sheet
+      open={open}
+      className="formulas"
+      aria-label="formula library"
+      onPointerDown={(e) => e.preventDefault()}
+    >
       {CATEGORIES.map((category) => (
         <section key={category.id} className={`formula-group cat-${category.id}`}>
           <h3 className="formula-category">{category.label}</h3>
@@ -18,7 +25,7 @@ export function FormulasPanel() {
                 type="button"
                 className="formula-entry"
                 title={formula.about}
-                onClick={() => setFormula(formula.latex)}
+                onClick={() => load(formula.latex)}
               >
                 <span className="formula-name">{formula.name}</span>
                 {/* Markup is MathLive's converter over the catalog constants. */}

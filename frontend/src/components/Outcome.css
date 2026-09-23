@@ -1,0 +1,81 @@
+.outcome {
+  min-height: 4.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.outcome-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.result {
+  animation: rise-in 220ms ease both;
+  margin-right: 8px;
+  font-size: clamp(1.8rem, 6vw, 3.4rem);
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(95deg, var(--peach-strong), var(--violet));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Same slot as the result, clearly provisional until = commits it. */
+.preview {
+  font-size: clamp(1.4rem, 4.5vw, 2.4rem);
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.outcome-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  animation: fade-in 220ms ease both;
+}
+
+.outcome-action:hover {
+  color: var(--peach);
+  background: var(--key-bg);
+}
+
+.outcome-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.outcome-copied {
+  font-size: 0.8rem;
+  color: var(--orange);
+}
+
+.error {
+  animation: rise-in 220ms ease both;
+  font-size: 1.25rem;
+  color: var(--error);
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(255, 122, 110, 0.09);
+  border: 1px solid rgba(255, 122, 110, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result,
+  .error,
+  .outcome-action {
+    animation: none;
+  }
+}
