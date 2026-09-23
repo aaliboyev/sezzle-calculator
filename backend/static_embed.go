@@ -6,7 +6,6 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
-	"strings"
 )
 
 //go:embed all:dist
@@ -17,13 +16,5 @@ func registerStatic(mux *http.ServeMux) {
 	if err != nil {
 		panic(err)
 	}
-	fileServer := http.FileServerFS(sub)
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// FileServer renders directory listings; only "/" has an index.
-		if strings.HasSuffix(r.URL.Path, "/") && r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		fileServer.ServeHTTP(w, r)
-	}))
+	mux.Handle("/", serveStatic(sub))
 }

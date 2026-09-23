@@ -1,6 +1,34 @@
 /// <reference types="vitest/config" />
-import { defineConfig, loadEnv } from 'vite'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { brotliCompressSync, constants, gzipSync } from 'node:zlib'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// Writes .br and .gz siblings next to text assets so the Go server can send
+// them as-is instead of compressing on every request.
+function precompress(): Plugin {
+  let outDir = ''
+  return {
+    name: 'precompress',
+    apply: 'build',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    closeBundle() {
+      for (const name of readdirSync(outDir, { recursive: true, encoding: 'utf8' })) {
+        if (!/\.(js|css|html|svg|json)$/.test(name)) continue
+        const path = join(outDir, name)
+        const data = readFileSync(path)
+        if (data.length < 1024) continue
+        writeFileSync(`${path}.br`, brotliCompressSync(data, {
+          params: { [constants.BROTLI_PARAM_QUALITY]: constants.BROTLI_MAX_QUALITY },
+        }))
+        writeFileSync(`${path}.gz`, gzipSync(data, { level: 9 }))
+      }
+    },
+  }
+}
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, '..', '')
@@ -11,7 +39,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [react(), precompress()],
     build: {
       // MathLive and the compute engine are large by nature; splitting them
       // keeps app-code changes from invalidating the big vendor chunks.
