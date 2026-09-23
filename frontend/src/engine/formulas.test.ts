@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CATEGORIES, FORMULAS, sampleFormulas } from './formulas'
 import { GUIDES } from './guides'
-import { translateLatex } from './translate'
+import { treeOf } from '../test/server'
 
 describe('the catalog', () => {
   it('has at least 30 formulas across all categories', () => {
@@ -18,11 +18,10 @@ describe('the catalog', () => {
     for (const f of FORMULAS) expect(known.has(f.category)).toBe(true)
   })
 
-  it('every formula translates to the backend grammar', () => {
-    for (const f of FORMULAS) {
-      const t = translateLatex(f.latex)
-      expect(t.kind, `${f.name}: ${JSON.stringify(t)}`).toBe('expression')
-    }
+  // The Go parser is checked against the same fixture, so a formula it
+  // cannot parse fails here and there.
+  it('every formula has a parse tree in the shared fixture', () => {
+    for (const f of FORMULAS) expect(() => treeOf(f.latex), f.name).not.toThrow()
   })
 
   it('every guided pattern has its showcase in the catalog', () => {

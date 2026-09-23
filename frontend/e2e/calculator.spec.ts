@@ -31,14 +31,14 @@ test('typing / builds a fraction and division by zero errors cleanly', async ({ 
   await expect(page.getByRole('alert')).toHaveText('division by zero')
 })
 
-test('rejects an incomplete expression without contacting the server', async ({ page }) => {
+test('reports an incomplete expression', async ({ page }) => {
   await page.goto('/')
   const field = page.locator('math-field')
   await field.click()
   await expect(field).toBeFocused()
   await page.keyboard.type('2+')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('alert')).toHaveText('incomplete or invalid expression')
+  await expect(page.getByRole('alert')).toHaveText('expression is incomplete')
 })
 
 test('rejects unsupported math with the offending symbol named', async ({ page }) => {
@@ -107,7 +107,7 @@ test('pasted LaTeX renders and evaluates', async ({ page }) => {
   await expect(page.getByRole('status', { name: 'result' })).toHaveText('2')
 })
 
-test('percent resolves through the translator', async ({ page }) => {
+test('percent folds into its number', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'toggle keypad' }).click()
   for (const key of ['5', '0', '%', '=']) {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MathfieldElement } from 'mathlive'
 import { editor } from '../editor/field'
+import { stubEvaluate } from '../test/server'
 import { useCalculator } from './calculator'
 import { useHistory } from './history'
 import { useUi } from './ui'
@@ -22,17 +23,6 @@ function attachField(latex = ''): FakeField {
   }
   editor.attach(field as unknown as MathfieldElement)
   return field as unknown as FakeField
-}
-
-function stubFetch(...results: number[]) {
-  const spy = vi.fn((_url: string, init: RequestInit) => {
-    const result = results.length > 1 ? results.shift() : results[0]
-    return init.signal?.aborted
-      ? Promise.reject(new DOMException('aborted', 'AbortError'))
-      : Promise.resolve(new Response(JSON.stringify({ result }), { status: 200 }))
-  })
-  vi.stubGlobal('fetch', spy)
-  return spy
 }
 
 const state = () => useCalculator.getState()
@@ -58,7 +48,7 @@ afterEach(() => {
 describe('live preview', () => {
   it('evaluates after a short pause, not on every keystroke', async () => {
     vi.useFakeTimers()
-    const spy = stubFetch(42)
+    const spy = stubEvaluate(42)
     const field = attachField()
     typeInto(field, '7\\cdot')
     typeInto(field, '7\\cdot6')
@@ -70,16 +60,16 @@ describe('live preview', () => {
 
   it('shows no preview for an expression that does not evaluate', async () => {
     vi.useFakeTimers()
-    const spy = stubFetch(1)
+    stubEvaluate({ code: 'invalid_expression', message: 'expression is incomplete' })
     typeInto(attachField(), '2+')
     await vi.advanceTimersByTimeAsync(200)
-    expect(spy).not.toHaveBeenCalled()
     expect(state().preview).toBeNull()
+    expect(state().committed).toBeNull()
   })
 
   it('drops a preview whose latex was edited away meanwhile', async () => {
     vi.useFakeTimers()
-    stubFetch(4)
+    stubEvaluate((latex) => (latex === '2+2' ? 4 : { code: 'invalid_expression', message: 'expression is incomplete' }))
     const field = attachField()
     typeInto(field, '2+2')
     await vi.advanceTimersByTimeAsync(160)
@@ -91,37 +81,31 @@ describe('live preview', () => {
 
 describe('commit', () => {
   it('does nothing for an empty field', async () => {
-    const spy = stubFetch(1)
+    const spy = stubEvaluate(1)
     attachField('')
     await state().commit()
     expect(spy).not.toHaveBeenCalled()
     expect(state().committed).toBeNull()
   })
 
-  it('shows translation errors without contacting the server', async () => {
-    const spy = stubFetch(1)
+  it('shows parse errors from the server', async () => {
+    stubEvaluate({ code: 'unsupported', message: 'unsupported: x' })
     attachField('x+1')
     await state().commit()
-    expect(spy).not.toHaveBeenCalled()
     expect(state().committed).toEqual({ kind: 'error', message: 'unsupported: x' })
   })
 
-  it('shows backend errors', async () => {
-    vi.stubGlobal('fetch', () =>
-      Promise.resolve(
-        new Response(JSON.stringify({ error: { code: 'division_by_zero', message: 'division by zero' } }), {
-          status: 422,
-        }),
-      ),
-    )
+  it('shows evaluation errors and keeps the guide for the tree', async () => {
+    stubEvaluate({ code: 'division_by_zero', message: 'division by zero' })
     attachField('\\frac{1}{0}')
     await state().commit()
     expect(state().committed).toEqual({ kind: 'error', message: 'division by zero' })
+    expect(state().guide?.id).toBe('division-by-zero')
     expect(useHistory.getState().entries).toEqual([])
   })
 
   it('records the value in history and the share hash', async () => {
-    stubFetch(42)
+    stubEvaluate(42)
     const replaceState = vi.fn()
     vi.stubGlobal('history', { replaceState })
     attachField('7\\cdot6')
@@ -133,7 +117,7 @@ describe('commit', () => {
 
   it('reuses the in-flight preview for the same latex', async () => {
     vi.useFakeTimers()
-    const spy = stubFetch(42)
+    const spy = stubEvaluate(42)
     typeInto(attachField(), '7\\cdot6')
     await vi.advanceTimersByTimeAsync(160)
     await state().commit()
@@ -189,7 +173,7 @@ describe('press', () => {
   })
 
   it('= commits the field content', async () => {
-    stubFetch(42)
+    stubEvaluate(42)
     attachField('7\\times6')
     state().press('=')
     await vi.waitFor(() => expect(state().committed).toEqual({ kind: 'value', value: 42 }))
@@ -224,7 +208,7 @@ describe('press', () => {
 describe('guide', () => {
   it('activates on a matching formula and follows its digits', async () => {
     vi.useFakeTimers()
-    stubFetch(1)
+    stubEvaluate(1)
     const field = attachField()
     typeInto(field, '85\\cdot18\\%')
     await vi.advanceTimersByTimeAsync(200)
@@ -236,7 +220,7 @@ describe('guide', () => {
 
   it('pauses a broken pattern after a delay instead of hiding it', async () => {
     vi.useFakeTimers()
-    stubFetch(1)
+    stubEvaluate(1)
     const field = attachField()
     typeInto(field, '85\\cdot18\\%')
     await vi.advanceTimersByTimeAsync(200)
@@ -253,7 +237,7 @@ describe('guide', () => {
 
   it('a match within the pause never dims', async () => {
     vi.useFakeTimers()
-    stubFetch(1)
+    stubEvaluate(1)
     const field = attachField()
     typeInto(field, '85\\cdot18\\%')
     await vi.advanceTimersByTimeAsync(200)
@@ -267,7 +251,7 @@ describe('guide', () => {
 
   it('clears immediately when the field empties', async () => {
     vi.useFakeTimers()
-    stubFetch(1)
+    stubEvaluate(1)
     const field = attachField()
     typeInto(field, '85\\cdot18\\%')
     await vi.advanceTimersByTimeAsync(200)
@@ -279,7 +263,7 @@ describe('guide', () => {
 
 describe('load', () => {
   it('replaces the field, closes panels, clears the outcome, and evaluates at once', async () => {
-    stubFetch(5)
+    stubEvaluate(5)
     const field = attachField('1+1')
     useUi.setState({ panel: 'keypad' })
     useCalculator.setState({ committed: { kind: 'value', value: 2 } })

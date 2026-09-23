@@ -12,7 +12,7 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/api/v1/calculate", handleCalculate)
+	mux.HandleFunc("/api/v1/evaluate", handleEvaluate)
 	registerStatic(mux)
 	return mux
 }
@@ -39,7 +39,7 @@ func main() {
 		log.Fatal("BACKEND_PORT is not set (see .env.example)")
 	}
 	if host := os.Getenv("BACKEND_HOST"); host != "" {
-		log.Printf("listening on http://%s:%s (api: http://%s:%s/api/v1/calculate)", host, port, host, port)
+		log.Printf("listening on http://%s:%s (api: http://%s:%s/api/v1/evaluate)", host, port, host, port)
 	} else {
 		log.Printf("listening on :%s", port)
 	}

@@ -1,5 +1,4 @@
 import { matchGuide, type GuideMatch } from '../engine/guides'
-import { translateLatex } from '../engine/translate'
 
 export type Outcome =
   | { kind: 'value'; value: number }
@@ -8,58 +7,49 @@ export type Outcome =
 
 export type Evaluation = { outcome: Outcome; guide: GuideMatch | null }
 
-type SuccessBody = { result: number }
-type ErrorBody = { error: { code: string; message: string } }
+type ApiError = { code: string; message: string }
+type EvaluateBody = { result?: number; tree?: unknown; error?: ApiError }
 
-function isSuccessBody(body: unknown): body is SuccessBody {
-  return (
-    typeof body === 'object' &&
-    body !== null &&
-    typeof (body as SuccessBody).result === 'number'
-  )
-}
-
-function isErrorBody(body: unknown): body is ErrorBody {
-  const err = (body as ErrorBody)?.error
+function isApiError(err: unknown): err is ApiError {
   return (
     typeof err === 'object' &&
     err !== null &&
-    typeof err.code === 'string' &&
-    typeof err.message === 'string'
+    typeof (err as ApiError).code === 'string' &&
+    typeof (err as ApiError).message === 'string'
   )
 }
 
-export async function calculate(expression: string, signal?: AbortSignal): Promise<Outcome> {
+function failure(code: string, message: string): Evaluation {
+  return { outcome: { kind: 'error', code, message }, guide: null }
+}
+
+// The server parses and evaluates the LaTeX and returns its tree, even
+// alongside an evaluation error, so 1/0 still gets its guide.
+export async function evaluate(latex: string, signal?: AbortSignal): Promise<Evaluation> {
+  if (!latex.trim()) return { outcome: { kind: 'empty' }, guide: null }
   let response: Response
   try {
-    response = await fetch('/api/v1/calculate', {
+    response = await fetch('/api/v1/evaluate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expression }),
+      body: JSON.stringify({ latex }),
       signal,
     })
   } catch {
-    return { kind: 'error', code: 'network', message: 'cannot reach the server' }
+    return failure('network', 'cannot reach the server')
   }
-  let body: unknown
+  let body: EvaluateBody
   try {
     body = await response.json()
   } catch {
-    return { kind: 'error', code: 'bad_response', message: 'server returned an unreadable response' }
+    return failure('bad_response', 'server returned an unreadable response')
   }
-  if (response.ok && isSuccessBody(body)) return { kind: 'value', value: body.result }
-  if (isErrorBody(body)) return { kind: 'error', code: body.error.code, message: body.error.message }
-  return { kind: 'error', code: 'bad_response', message: 'server returned an unexpected response' }
-}
-
-// LaTeX in, result and guide out. Translation and guide matching run
-// client-side until the server parses LaTeX itself; callers only see this.
-export async function evaluate(latex: string, signal?: AbortSignal): Promise<Evaluation> {
-  const guide = matchGuide(latex)
-  const translation = translateLatex(latex)
-  if (translation.kind === 'empty') return { outcome: { kind: 'empty' }, guide }
-  if (translation.kind === 'error') {
-    return { outcome: { kind: 'error', code: 'invalid_expression', message: translation.message }, guide }
+  const guide = body?.tree === undefined ? null : matchGuide(body.tree, latex)
+  if (response.ok && typeof body.result === 'number') {
+    return { outcome: { kind: 'value', value: body.result }, guide }
   }
-  return { outcome: await calculate(translation.expression, signal), guide }
+  if (isApiError(body?.error)) {
+    return { outcome: { kind: 'error', code: body.error.code, message: body.error.message }, guide }
+  }
+  return failure('bad_response', 'server returned an unexpected response')
 }

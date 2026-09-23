@@ -41,16 +41,13 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [react(), precompress()],
     build: {
-      // MathLive and the compute engine are large by nature; splitting them
-      // keeps app-code changes from invalidating the big vendor chunks.
-      chunkSizeWarningLimit: 2000,
+      // MathLive is large by nature; its own chunk keeps app-code changes
+      // from invalidating it in browser caches.
+      chunkSizeWarningLimit: 1000,
       rolldownOptions: {
         output: {
           codeSplitting: {
-            groups: [
-              { name: 'compute-engine', test: /node_modules[/\\]@cortex-js/ },
-              { name: 'mathlive', test: /node_modules[/\\]mathlive/ },
-            ],
+            groups: [{ name: 'mathlive', test: /node_modules[/\\]mathlive/ }],
           },
         },
       },
@@ -67,7 +64,7 @@ export default defineConfig(({ command, mode }) => {
       coverage: {
         provider: 'v8',
         include: ['src/**'],
-        exclude: ['src/main.tsx', 'src/App.tsx', 'src/components/**', 'src/hooks/**'],
+        exclude: ['src/main.tsx', 'src/App.tsx', 'src/components/**', 'src/test/**', 'src/**/*.json'],
       },
     },
   }
